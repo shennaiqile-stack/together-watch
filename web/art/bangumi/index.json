@@ -1,0 +1,62 @@
+{
+  "fetchedAt": 1794137197,
+  "rankSource": "https://www.bilibili.com/v/popular/rank/bangumi",
+  "rankApi": "https://api.bilibili.com/pgc/web/rank/list?day=3&season_type=1",
+  "items": [
+    {
+      "seasonId": 33415,
+      "title": "名侦探柯南（中配）",
+      "rank": 1,
+      "file": "72f62ee705eed0eb2ef42561.jpg",
+      "imageSource": "https://i0.hdslb.com/bfs/archive/5318044afa02c4efe117bfb89a65995fa3766c22.jpg",
+      "source": "https://www.bilibili.com/bangumi/play/ss33415",
+      "kind": "episode",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "seasonId": 6422,
+      "title": "黑色四叶草",
+      "rank": 5,
+      "file": "970f3854fd42c062f880bd97.jpg",
+      "imageSource": "https://i1.hdslb.com/bfs/archive/ee4a86efc84a667783de4ee77b4229c751569237.jpg",
+      "source": "https://www.bilibili.com/bangumi/play/ss6422",
+      "kind": "episode",
+      "width": 960,
+      "height": 600
+    },
+    {
+      "seasonId": 336505,
+      "title": "少年骇客 第四季 中文配音",
+      "rank": 8,
+      "file": "c20828fd893fa6b3afcf433c.png",
+      "imageSource": "https://i0.hdslb.com/bfs/archive/1a4464735d6e4d3ca406808a683b58ac07998022.png",
+      "source": "https://www.bilibili.com/bangumi/play/ss336505",
+      "kind": "episode",
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "seasonId": 34430,
+      "title": "咒术回战",
+      "rank": 10,
+      "file": "4dbb58fde2539a100d79e71c.jpg",
+      "imageSource": "https://i0.hdslb.com/bfs/archive/0f3918589130fe7e88f75a5fdabb6e8b86c41de5.jpg",
+      "source": "https://www.bilibili.com/bangumi/play/ss34430",
+      "kind": "episode",
+      "width": 960,
+      "height": 600
+    },
+    {
+      "seasonId": 113506,
+      "title": "致不灭的你 第三季",
+      "rank": 11,
+      "file": "d0746a8f5e3479ba902a67d9.png",
+      "imageSource": "https://i0.hdslb.com/bfs/bangumi/image/06ca25bc4c49b5ef17788fe84ad67d9b13a3ccad.png",
+      "source": "https://www.bilibili.com/bangumi/play/ss113506",
+      "kind": "episode",
+      "width": 960,
+      "height": 600
+    }
+  ]
+}

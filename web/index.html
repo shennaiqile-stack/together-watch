@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f5f7fc">
+<title>一起看 · 共享此刻</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="/js/theme.js"></script>
+<link rel="stylesheet" href="/css/app.css">
+<link rel="stylesheet" href="/css/discovery.css">
+</head>
+<body data-home-mode="create">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15.4 5.4 8.8 12l6.6 6.6 1.4-1.4-5.2-5.2 5.2-5.2z"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9.4 5.4-1.7-1a7.6 7.6 0 0 0 0-2.8l1.7-1-1.9-3.3-1.9.8a7.7 7.7 0 0 0-2.4-1.4L15 2.5h-3.9l-.3 2.2c-.9.3-1.7.8-2.4 1.4l-2-.8L4.6 8.6l1.7 1a7.6 7.6 0 0 0 0 2.8l-1.7 1 1.9 3.3 2-.8c.7.6 1.5 1.1 2.4 1.4l.3 2.2H15l.4-2.2c.9-.3 1.7-.8 2.4-1.4l1.9.8 1.9-3.3z"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4zm12.5 3a4.5 4.5 0 0 0-1.8-3.6v7.2A4.5 4.5 0 0 0 16.5 12zm-1.8-8.2v2.1a6.8 6.8 0 0 1 0 12.2v2.1a8.9 8.9 0 0 0 0-16.4z"/></symbol>
+    <symbol id="i-muted" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4zm15.6 2.1-1.4-1.4-2.1 2.1-2.1-2.1-1.4 1.4 2.1 2.1-2.1 2.1 1.4 1.4 2.1-2.1 2.1 2.1 1.4-1.4-2.1-2.1z"/></symbol>
+    <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5v2H6v3H4zm11-5h5v5h-2V6h-3V4zM4 15h2v3h3v2H4v-5zm14 3v-3h2v5h-5v-2h3z"/></symbol>
+    <symbol id="i-exitfull" viewBox="0 0 24 24"><path d="M9 4v5H4v2h7V4H9zm6 0h-2v7h7V9h-5V4zM4 15v2h5v5h2v-7H4zm9 0v7h2v-5h5v-2h-7z"/></symbol>
+    <symbol id="i-dm-on" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-4 3V5zm3 3v2h10V8H7zm0 4v2h7v-2H7z"/></symbol>
+    <symbol id="i-dm-off" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-4 3V5zm3 3v2h10V8H7zm0 4v2h7v-2H7z" opacity=".35"/><path d="m3.3 2.3 18.4 18.4-1.4 1.4L18.6 20H3l1-1V3.7L2 2.7l1.3-1.4z" opacity=".9"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M18 16.1a3 3 0 0 0-2.5 1.3L9 13.9a3.3 3.3 0 0 0 0-3.8l6.5-3.5A3 3 0 1 0 15 4c0 .3 0 .5.1.8L8.6 8.2a3 3 0 1 0 0 7.6l6.5 3.4c0 .2-.1.4-.1.7a3 3 0 1 0 3-3z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 4h16v12H8l-4 4V4zm3 4v2h10V8H7zm0 4v2h7v-2H7z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm7 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 19c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5v1H2v-1zm15.5-4.4c2.7.4 4.5 2.2 4.5 4.9V20h-5v-1c0-1.7-.6-3.2-1.6-4.4.6-.2 1.3-.3 2.1 0z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 2h11v14h-3V6H9V2zM4 6h11v16H4V6zm3 3v2h7V9H7zm0 4v2h7v-2H7z"/></symbol>
+    <symbol id="i-login" viewBox="0 0 24 24"><path d="M10 3h10v18H10v-2h8V5h-8V3zM3 11h9l-3-3 1.4-1.4L15.8 12l-5.4 5.4L9 16l3-3H3v-2z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M12 4a8 8 0 0 1 7.5 5H22l-4 4-4-4h2.9A6 6 0 1 0 18 13h2a8 8 0 1 1-8-9z"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 14h-2v2h2v-2zm0-7h-2v5h2V9z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path d="M10.5 3a7.5 7.5 0 1 1-4.9 13.1l-3.2 3.2-1.4-1.4 3.2-3.2A7.5 7.5 0 0 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2zm0 2a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2z"/><path d="M10.6 2.6h2.8l.4 2.2a7.4 7.4 0 0 1 1.3.6l2-1.1 2 2-1.1 2c.2.4.4.9.6 1.3l2.2.4v2.8l-2.2.4a7.4 7.4 0 0 1-.6 1.3l1.1 2-2 2-2-1.1a7.4 7.4 0 0 1-1.3.6l-.4 2.2h-2.8l-.4-2.2a7.4 7.4 0 0 1-1.3-.6l-2 1.1-2-2 1.1-2a7.4 7.4 0 0 1-.6-1.3L2.6 13v-2.8l2.2-.4a7.4 7.4 0 0 1 .6-1.3l-1.1-2 2-2 2 1.1a7.4 7.4 0 0 1 1.3-.6z" opacity=".9"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m12 3 10 8h-3v10h-5v-7h-4v7H5V11H2z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="m13 5-1.4 1.4 4.6 4.6H4v2h12.2l-4.6 4.6L13 19l7-7z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 16h-2v-2h2v2zm1.1-6.1c-1 .7-1.1 1.1-1.1 2.1h-2c0-1.6.3-2.3 1.8-3.4.8-.5 1.2-1 1.2-1.6a2 2 0 0 0-4 0H8a4 4 0 0 1 8 0c0 1.3-.7 2.2-1.9 2.9z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M8 7h3v2H8a3 3 0 0 0 0 6h3v2H8A5 5 0 0 1 8 7zm5 0h3a5 5 0 0 1 0 10h-3v-2h3a3 3 0 0 0 0-6h-3V7zM8 11h8v2H8z"/></symbol>
+  </defs>
+</svg>
+
+<div id="app">
+  <nav class="nav-rail" aria-label="主导航">
+    <div class="rail-brand" aria-label="一起看"><svg><use href="#i-play"/></svg></div>
+    <button class="rail-item selected" id="nav-home" aria-label="发现番剧" aria-current="page"><span class="rail-icon"><svg><use href="#i-home"/></svg></span><span>发现</span></button>
+    <button class="rail-item" id="nav-room"><span class="rail-icon"><svg><use href="#i-users"/></svg></span><span>放映室</span></button>
+    <button class="rail-item" id="nav-sources"><span class="rail-icon"><svg><use href="#i-search"/></svg></span><span>片源</span></button>
+    <button class="rail-item" data-download-library><span class="rail-icon"><svg><use href="#i-play"/></svg></span><span>下载</span></button>
+    <button class="rail-item mobile-more" id="nav-more"><span class="rail-icon"><svg><use href="#i-settings"/></svg></span><span>更多</span></button>
+    <div class="rail-bottom">
+      <button class="rail-item" id="nav-profile"><span class="rail-icon"><svg><use href="#i-users"/></svg></span><span>我的</span></button>
+      <button class="rail-item" id="nav-help"><span class="rail-icon"><svg><use href="#i-help"/></svg></span><span>帮助</span></button>
+      <button class="rail-item" id="btn-settings" aria-label="设置"><span class="rail-icon"><svg><use href="#i-settings"/></svg></span><span>设置</span></button>
+    </div>
+  </nav>
+  <div class="app-content">
+    <header class="appbar" id="appbar">
+      <button class="icon-btn" id="btn-back" hidden aria-label="退出房间"><svg><use href="#i-back"/></svg></button>
+      <div class="brand"><span class="brand-name">一起看</span><span class="appbar-divider"></span><span class="page-label" id="page-label">发现</span></div>
+      <div class="room-chip" id="room-chip" hidden><span class="dot"></span><span id="room-chip-code">------</span></div>
+      <div class="appbar-spacer"></div>
+      <div class="conn" id="conn-pill" hidden><span class="conn-dot"></span><span id="conn-text">连接中</span></div>
+      <button class="btn tonal appbar-search" id="btn-search" hidden aria-label="搜索番剧"><svg><use href="#i-search"/></svg><span>找番剧</span></button>
+      <button class="btn filled share-action" id="btn-share" hidden aria-label="邀请好友"><svg><use href="#i-plus"/></svg><span>邀请好友</span></button>
+      <div class="lobby-tools"><button class="btn text" id="btn-open-join"><svg><use href="#i-link"/></svg>加入房间</button><button class="btn filled" id="btn-open-create"><svg><use href="#i-plus"/></svg>创建房间</button></div>
+    </header>
+    <div class="search-panel search-pop" id="search-panel" hidden>
+      <div class="search-head"><input id="search-input" aria-label="番剧名称" placeholder="想看哪部番剧？" autocomplete="off" spellcheck="false"><button class="btn filled" id="btn-search-go">搜索</button></div>
+      <div class="search-note"><label>动漫源 <select id="search-provider" aria-label="动漫源"><option value="bilibili">哔哩哔哩</option></select></label><button class="btn text" id="btn-probe-sources">检测并选择片源</button></div><div class="search-list" id="search-list"></div>
+    </div>
+    <main class="screen discover-screen" id="screen-home">
+      <div class="discover-heading"><div><h1>发现</h1><p>找到下一部，和朋友一起看。</p></div><button class="btn tonal" id="btn-discover-room"><svg><use href="#i-users"/></svg>我的放映室</button></div>
+      <section class="discover-feature" aria-label="随机推荐"><div class="feature-copy"><span class="feature-eyebrow">热度发现</span><h2 id="feature-title">从一部好番开始</h2><div class="feature-tags" id="feature-tags"></div><p id="feature-meta">正在准备番剧信息</p><div class="feature-actions"><button class="btn filled" id="btn-feature-details">看看这部<svg><use href="#i-arrow"/></svg></button><button class="btn text" id="btn-feature-shuffle"><svg><use href="#i-refresh"/></svg>换一部</button></div></div><div class="feature-art"><img class="feature-backdrop" id="feature-backdrop" alt="" hidden><img class="feature-poster" id="feature-poster" alt="" hidden></div></section>
+      <section aria-labelledby="catalogue-title"><div class="catalogue-heading"><div><h2 id="catalogue-title">大家都在看</h2><p id="catalogue-status" role="status">加载本机番剧列表…</p></div><div class="catalogue-actions"><button class="btn tonal" id="btn-catalogue-refresh"><svg><use href="#i-refresh"/></svg>更新列表</button><a class="catalogue-source" href="https://bgm.tv" target="_blank" rel="noopener noreferrer">Bangumi<svg><use href="#i-arrow"/></svg></a></div></div><div class="catalogue-toolbar"><div class="catalogue-sorts" role="group" aria-label="排列方式"><button class="selected" data-catalogue-sort="heat" aria-pressed="true">热门</button><button data-catalogue-sort="score" aria-pressed="false">评分优先</button><button data-catalogue-sort="random" aria-pressed="false">随机发现</button></div><label class="catalogue-filter"><svg><use href="#i-search"/></svg><input id="catalogue-filter" placeholder="筛选番名或类型" aria-label="筛选当前番剧列表" autocomplete="off"></label></div><div class="poster-grid" id="poster-grid" aria-label="热门番剧"></div><div class="catalogue-paging"><button class="btn tonal" id="btn-catalogue-more">显示更多番剧</button></div><div class="catalogue-empty" id="catalogue-empty" hidden><svg><use href="#i-search"/></svg><p>没有匹配的番剧，换个关键词试试。</p><button class="btn tonal" id="btn-clear-filter">清除筛选</button></div></section>
+    </main>
+<main class="screen room-entry-page" id="screen-room-entry" hidden aria-labelledby="entry-dialog-title"><div class="dlg-head"><div><span class="eyebrow">相聚，从这里开始</span><h3 id="entry-dialog-title">放映室</h3></div><button class="icon-btn" id="btn-entry-home" aria-label="返回发现"><svg><use href="#i-back"/></svg></button></div><div class="dlg-body"><span class="badge" id="server-badge">本机服务器</span>        <section class="room-card" aria-labelledby="entry-title">
+          <div class="section-heading"><div><span class="eyebrow">准备就绪</span><h2 id="entry-title">开始一场放映</h2></div><span class="heading-icon"><svg><use href="#i-play"/></svg></span></div>
+          <div class="entry-segments" role="group" aria-label="进入房间的方式"><button id="btn-hero-create" class="selected" aria-pressed="true"><svg><use href="#i-plus"/></svg>创建房间</button><button id="btn-hero-join" aria-pressed="false"><svg><use href="#i-link"/></svg>加入房间</button></div>
+          <p class="entry-description" id="entry-description">做这场放映的发起人，邀请朋友来坐坐。</p>
+          <label class="field"><span class="field-label">怎么称呼你</span><input id="name-input" maxlength="16" placeholder="输入你的昵称" autocomplete="nickname"></label>
+          <label class="field" id="invite-field" hidden><span class="field-label">好友的邀请链接</span><input id="server-input" placeholder="粘贴手机或电脑的完整邀请链接" autocomplete="off" spellcheck="false"><span class="field-hint">异地加入请使用完整链接，房间号会自动识别。</span></label>
+          <div class="field"><label class="field-label" for="room-input" id="room-input-label">你的房间号</label><div class="room-code-field"><input id="room-input" maxlength="12" placeholder="输入房间号" autocomplete="off" spellcheck="false"><button class="icon-btn" id="btn-random" aria-label="换一个房间号" title="换一个房间号"><svg><use href="#i-refresh"/></svg></button></div><span class="field-hint" id="room-field-hint">已为你准备好，也可以换一个喜欢的。</span></div>
+          <button class="btn filled entry-submit" id="btn-create">创建房间<svg><use href="#i-arrow"/></svg></button><button class="btn filled entry-submit" id="btn-join" hidden>加入放映<svg><use href="#i-arrow"/></svg></button>
+          <details class="phone-server-field" id="phone-server-field" hidden><summary>连接设置</summary><label class="field"><span class="field-label">同步服务器</span><input id="phone-sync-server" value="syncplay.pl:8999" spellcheck="false" autocomplete="off"><span class="field-hint">连接不上时可换为 syncplay.pl:8995；电脑与手机须使用同一服务器和房号；完整邀请会自动填写。</span></label></details><p class="entry-footnote" id="entry-footnote">进入后选择视频，再把邀请链接发给朋友。</p>
+        </section>
+</div></main>
+  <main class="screen room-screen" id="screen-room" hidden>
+    <div class="room-layout">
+      <div class="stage-col">
+          <div class="bv-bar source-composer">
+            <label class="field-label" for="bv-input">今晚看什么</label><div class="bv-input-wrap">
+              <input id="bv-input" placeholder="粘贴视频链接、BV 号或番剧链接" autocomplete="off" spellcheck="false">
+              <button class="btn filled ripple" id="btn-load">播放</button>
+            </div>
+            <div class="bv-hint" id="bv-hint">选好后，房间里的朋友会自动载入同一视频。</div>
+          </div>
+        <div class="media-status" id="media-status" role="status" aria-live="polite" hidden><i class="loading-dot" aria-hidden="true"></i><span id="media-status-text"></span><button class="btn text" id="btn-media-retry" hidden>重新载入</button></div>
+        <div class="player-shell no-video" id="player-shell">
+          <video id="video" playsinline preload="metadata" crossorigin="anonymous"></video>
+          <canvas class="sr-canvas" id="sr-canvas" hidden></canvas>
+          <audio id="audio" preload="auto"></audio>
+          <div class="dm-layer" id="dm-layer"></div>
+
+          <div class="player-top">
+            <div class="pt-title" id="pt-title">还没有视频</div>
+            <div class="pt-meta">
+              <span class="chip" id="pt-room">房间 -----</span>
+              <span class="chip" id="pt-members">1 人</span>
+              <span class="chip" id="pt-rtt" hidden>-- ms</span>
+            </div>
+          </div>
+
+          <div class="player-center" id="player-center">
+            <button class="big-play ripple" id="big-play" aria-label="播放">
+              <svg id="big-play-icon"><use href="#i-play"/></svg>
+            </button>
+          </div>
+
+          <div class="player-empty" id="player-empty">
+            <div class="pe-icon"><svg><use href="#i-play"/></svg></div>
+            <div class="pe-title">放映即将开始</div>
+            <div class="pe-sub">在上方选一部视频，和朋友一起看第一帧</div>
+          </div>
+
+          <div class="player-bottom" id="player-bottom">
+            <div class="progress" id="progress" role="slider" tabindex="0" aria-label="播放进度" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+              <div class="progress-hit"></div>
+              <div class="progress-buffer" id="progress-buffer"></div>
+              <div class="progress-played" id="progress-played"></div>
+              <div class="progress-knob" id="progress-knob"></div>
+            </div>
+            <div class="controls">
+              <button class="ctl ripple" id="btn-play" aria-label="播放/暂停">
+                <svg id="btn-play-icon"><use href="#i-play"/></svg>
+              </button>
+              <span class="time" id="time-label">00:00 / 00:00</span>
+              <div class="ctl-spacer"></div>
+              <button class="ctl ripple" id="btn-dm" title="弹幕开关">
+                <svg id="btn-dm-icon"><use href="#i-dm-on"/></svg>
+              </button>
+              <button class="ctl ripple" id="btn-dm-set" title="弹幕设置">
+                <svg><use href="#i-gear"/></svg>
+              </button>
+              <span class="net-stat" id="net-stat" title="缓冲余量 · 服务器延迟">—</span>
+              <div class="menu-wrap sr-wrap">
+                <button class="ctl text-ctl ripple" id="btn-sr" title="AI 超分（本地显卡增强画质）">超分</button>
+                <div class="menu" id="sr-menu" hidden></div>
+              </div>
+              <div class="menu-wrap quality-wrap">
+                <button class="ctl text-ctl ripple" id="btn-quality" title="画质">1080P</button>
+                <div class="menu" id="quality-menu" hidden></div>
+              </div>
+              <div class="menu-wrap rate-wrap">
+                <button class="ctl text-ctl ripple" id="btn-rate" title="倍速">1.0x</button>
+                <div class="menu" id="rate-menu" hidden></div>
+              </div>
+              <button class="ctl ripple" id="btn-mute" title="静音">
+                <svg id="btn-mute-icon"><use href="#i-volume"/></svg>
+              </button>
+              <input type="range" class="volume" id="volume" min="0" max="100" value="80" aria-label="音量">
+              <button class="ctl ripple" id="btn-full" title="全屏">
+                <svg id="btn-full-icon"><use href="#i-full"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="dm-set" id="dm-set" hidden>
+            <div class="ds-title">弹幕设置</div>
+
+            <div class="ds-label">按类型过滤</div>
+            <div class="ds-chips">
+              <label><input type="checkbox" id="dm-f-scroll" checked><span>滚动</span></label>
+              <label><input type="checkbox" id="dm-f-fixed" checked><span>固定</span></label>
+              <label><input type="checkbox" id="dm-f-color" checked><span>彩色</span></label>
+            </div>
+
+            <div class="ds-checks">
+              <label><input type="checkbox" id="dm-screen-scale" checked><span>弹幕随屏幕缩放</span></label>
+              <label><input type="checkbox" id="dm-avoid-sub"><span>防挡字幕</span></label>
+            </div>
+
+            <input class="ds-block" id="dm-block" placeholder="屏蔽词，用逗号分隔" autocomplete="off" spellcheck="false">
+
+            <div class="ds-row">
+              <span>显示区域</span>
+              <input type="range" id="dm-area" min="25" max="100" step="5" value="100">
+              <b id="dm-area-v">100%</b>
+            </div>
+            <div class="ds-row">
+              <span>不透明度</span>
+              <input type="range" id="dm-opacity" min="20" max="100" step="5" value="100">
+              <b id="dm-opacity-v">100%</b>
+            </div>
+            <div class="ds-row">
+              <span>弹幕字号</span>
+              <input type="range" id="dm-font" min="50" max="150" step="5" value="100">
+              <b id="dm-font-v">100%</b>
+            </div>
+            <div class="ds-row">
+              <span>弹幕速度</span>
+              <input type="range" id="dm-speed" min="1" max="5" step="1" value="3">
+              <b id="dm-speed-v">适中</b>
+            </div>
+          </div>
+        </div>
+
+        <div class="under-player">
+          <div class="video-info">
+            <div class="vi-main">
+              <h2 id="video-title">还没有加载视频</h2>
+              <div class="vi-sub" id="video-sub">房主输入 BV 号后，其他人会自动载入</div>
+            </div>
+            <div class="vi-actions">
+              <button class="btn tonal" id="btn-download-current" disabled>下载到本机</button>
+              <button class="btn text ripple" id="btn-reload" title="重新加载">
+                <svg><use href="#i-refresh"/></svg>重新载入
+              </button>
+            </div>
+          </div>
+
+          <div class="episode-bar" id="episode-bar" hidden>
+            <span class="ep-title">选集</span>
+            <div class="ep-list" id="ep-list"></div>
+          </div>
+
+
+        </div>
+      </div>
+
+      <aside class="side-col" aria-label="房间互动"><div class="side-heading"><div><span class="eyebrow">一起的时刻</span><h2>放映室</h2></div><span class="room-live-mark" title="房间互动"><svg><use href="#i-chat"/></svg></span></div>
+        <div class="tabs" role="group" aria-label="聊天与成员">
+          <button class="tab active" data-tab="chat">
+            <svg><use href="#i-chat"/></svg>聊天
+          </button>
+          <button class="tab" data-tab="members">
+            <svg><use href="#i-users"/></svg>成员 <span class="count" id="member-count">1</span>
+          </button>
+        </div>
+        <div class="tab-panel" id="panel-chat">
+          <div class="chat-list" id="chat-list" role="log" aria-live="polite" aria-label="房间消息"></div>
+          <form class="chat-form" id="chat-form">
+            <input id="chat-input" maxlength="150" placeholder="把这一刻，说给朋友听…" aria-label="聊天消息" autocomplete="off">
+            <button class="send ripple" id="btn-send" type="submit" aria-label="发送">发送</button>
+          </form>
+        </div>
+        <div class="tab-panel" id="panel-members" hidden>
+          <div class="member-list" id="member-list"></div>
+          <div class="side-foot">
+            <div class="foot-row"><span>连接</span><b id="foot-conn">未连接</b></div>
+            <div class="foot-row"><span>延迟</span><b id="foot-rtt">--</b></div>
+            <div class="foot-row"><span>服务器</span><b id="foot-server">本机</b></div>
+            <button class="btn outlined ripple w100" id="btn-reconnect">重新连接</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+<main hidden class="screen settings-page" id="dlg-settings" aria-labelledby="settings-title">
+  <div class="dlg-head"><div><span class="eyebrow">按照你的习惯</span><h3 id="settings-title">设置</h3></div><button class="btn tonal" id="btn-settings-back" aria-label="返回上一页">返回</button></div>
+  <div class="settings-layout">
+    <nav class="settings-nav" aria-label="设置分类"><button class="selected" data-settings="playback" aria-pressed="true"><svg><use href="#i-play"/></svg>外观与播放</button><button data-settings="personal" aria-pressed="false"><svg><use href="#i-users"/></svg>个人资料</button><button data-settings="network" aria-pressed="false"><svg><use href="#i-link"/></svg>连接与应用</button></nav>
+    <div class="dlg-body settings-body">
+      <section data-settings-panel="playback"><h4>每次开场，都合你心意</h4><p class="settings-description">选择默认画质与播放方式，房间内仍可随时调整。</p>
+        <label class="field"><span class="field-label">界面主题</span><select id="set-theme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select><span class="field-hint">立即应用，保存在当前设备。</span></label>
+        <label class="join-sound-setting"><span><strong>聊天消息提示音</strong><small>收到新消息时播放轻提示，全屏可直接回复</small></span><input type="checkbox" id="set-chat-sound" checked aria-label="聊天消息提示音"></label><label class="join-sound-setting"><span><strong>成员进房提示音</strong><small>朋友进入时播放一声轻提示</small></span><input type="checkbox" id="set-join-sound" checked aria-label="成员进房提示音"></label><label class="field"><span class="field-label">默认画质</span><select id="set-quality"><option value="127">8K 超高清</option><option value="120">4K 超清</option><option value="116">1080P60</option><option value="80" selected>1080P 高清</option><option value="64">720P 高清</option><option value="32">480P 清晰</option><option value="16">360P 流畅</option></select><span class="field-hint">可用画质取决于视频与 B 站账号权限。</span></label>
+        <label class="field"><span class="field-label">播放偏好</span><select id="set-mode"><option value="mp4">兼容优先</option><option value="dash">高画质优先</option></select><span class="field-hint">1080P 及以上始终保留所选高清画质。</span></label>
+        <label class="field"><span class="field-label">打开方式</span><select id="set-open"><option value="app">独立应用窗口</option><option value="browser">默认浏览器</option></select></label>
+      </section>
+      <section data-settings-panel="personal" hidden><h4>朋友眼中的你</h4><p class="settings-description">为下一次相聚，准备好名字与头像。</p><label class="field"><span class="field-label">默认昵称</span><input id="set-name" maxlength="16" placeholder="想让朋友怎么称呼你"></label><button class="btn tonal" id="btn-profile"><svg><use href="#i-users"/></svg>编辑昵称与头像</button></section>
+      <section data-settings-panel="network" hidden><h4>连接与应用</h4><p class="settings-description">异地邀请可以在房间的「邀请好友」中开启。</p><label class="field"><span class="field-label">自定义分享地址（可选）</span><input id="set-public" placeholder="https://你的对外地址"><span class="field-hint">已有固定的对外地址时填写。</span></label><details class="connection-details"><summary>连接信息</summary><div class="info-box"><div class="foot-row"><span>本机地址</span><b id="set-local">-</b></div><div class="foot-row"><span>分享地址</span><b id="set-share">-</b></div><div class="foot-row"><span>同步端口</span><b id="set-sync">-</b></div><div class="foot-row"><span>版本</span><b id="set-version">-</b></div></div></details><button class="btn text danger" id="btn-shutdown">退出程序</button></section>
+    </div>
+  </div><div class="settings-footer"><span>偏好会保存在当前设备</span><button class="btn filled" id="btn-save">保存设置</button></div>
+</main>
+  </div>
+</div>
+
+
+<dialog class="dlg account-dialog" id="dlg-account" aria-labelledby="account-dialog-title"><div class="dlg-head"><h3 id="account-dialog-title">我的</h3><button class="icon-btn" data-close aria-label="关闭我的账号"><svg><use href="#i-close"/></svg></button></div><div class="dlg-body">        <section class="account-card" id="login-strip" aria-label="B 站账号"><div class="avatar" id="avatar">B</div><div class="login-text"><strong id="login-title">连接你的 B 站账号</strong><span id="login-sub">登录后解锁账号可用的高清画质</span></div><button class="btn outlined" id="btn-login">登录 B 站</button></section><button class="btn tonal" id="btn-account-profile"><svg><use href="#i-users"/></svg>编辑昵称与头像</button><button class="btn text" id="btn-account-logout" hidden>退出 B 站登录</button></div></dialog>
+<dialog class="dlg anime-dialog" id="dlg-anime" aria-labelledby="anime-title"><div class="dlg-head"><span class="eyebrow">番剧详情</span><button class="icon-btn" data-close aria-label="关闭番剧详情"><svg><use href="#i-close"/></svg></button></div><div class="dlg-body"><div class="anime-overview"><img id="anime-poster" alt=""><div class="anime-info"><h3 id="anime-title"></h3><p id="anime-original"></p><div class="anime-rating"><strong id="anime-score">—</strong><span id="anime-votes"></span></div><div class="feature-tags" id="anime-tags"></div></div></div><p class="anime-facts" id="anime-facts"></p><p class="anime-availability">在放映室中搜索 B 站可播放的视频，邀请朋友一起看。</p><div class="anime-actions"><a class="btn outlined" id="anime-source" target="_blank" rel="noopener noreferrer">Bangumi 详情<svg><use href="#i-arrow"/></svg></a><button class="btn filled" id="btn-anime-room"><svg><use href="#i-plus"/></svg>创建房间并搜索</button></div></div></dialog>
+
+<!-- ================= 首次设置昵称与头像 ================= -->
+<dialog class="dlg" id="dlg-profile">
+  <div class="dlg-head">
+    <h3 id="prof-title">先认识一下你</h3>
+    <button class="icon-btn ripple" data-close aria-label="关闭个人资料" id="prof-close"><svg><use href="#i-close"/></svg></button>
+  </div>
+  <div class="dlg-body prof-body">
+    <div class="prof-row">
+      <button class="prof-avatar" id="prof-avatar" type="button" title="点击换一张头像">
+        <img id="prof-img" alt="" hidden>
+        <span id="prof-initial">A</span>
+      </button>
+      <div class="prof-fields">
+        <label class="field">
+          <span class="field-label">昵称</span>
+          <input id="prof-name" maxlength="16" placeholder="比如 小葵">
+        </label>
+        <span class="field-hint">点头像可以换一张图；用喜欢的名字和头像，和朋友打个招呼。</span>
+      </div>
+    </div>
+    <input type="file" id="prof-file" accept="image/*" hidden>
+    <div class="dlg-actions">
+      <button class="btn text ripple" id="prof-skip">以后再说</button>
+      <button class="btn filled ripple" id="prof-save">开始使用</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="dlg" id="dlg-login" aria-labelledby="login-dialog-title">
+  <div class="dlg-head">
+    <h3 id="login-dialog-title">登录 B 站</h3>
+    <button class="icon-btn ripple" data-close aria-label="关闭"><svg><use href="#i-close"/></svg></button>
+  </div>
+  <div class="login-tabs" role="tablist" aria-label="登录方式">
+    <button class="btn tonal" id="login-tab-sms" role="tab" aria-selected="true" aria-controls="login-sms-panel">手机验证码</button>
+    <button class="btn text" id="login-tab-qr" role="tab" aria-selected="false" aria-controls="login-qr-panel" tabindex="-1">扫码登录</button>
+  </div>
+  <div class="dlg-body sms-login-body" id="login-sms-panel" role="tabpanel" aria-labelledby="login-tab-sms">
+    <p>用手机号和短信验证码登录 B 站</p>
+    <p class="muted small">点击下方按钮，在 B 站官方页面完成验证码和安全验证，成功后自动返回。</p>
+    <button class="btn filled" id="btn-sms-login">手机验证码登录</button>
+    <p class="qr-status" id="sms-status" role="status" aria-live="polite">登录信息仅保存在当前设备。</p>
+  </div>
+  <div class="dlg-body login-body" id="login-qr-panel" role="tabpanel" aria-labelledby="login-tab-qr" hidden>
+    <div class="qr-box" id="qr-box"><div class="qr-placeholder">点击刷新获取二维码</div></div>
+    <div class="qr-side">
+      <p class="qr-status" id="qr-status" role="status" aria-live="polite">打开 B 站手机客户端扫一扫</p>
+      <p class="muted small">使用 B 站手机客户端扫码，登录信息保存在当前设备。</p>
+      <button class="btn text ripple" id="btn-qr-refresh"><svg><use href="#i-refresh"/></svg>刷新二维码</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ================= 分享 ================= -->
+<dialog class="dlg share-dialog" id="dlg-share">
+  <div class="dlg-head">
+    <h3>邀请好友</h3>
+    <button class="icon-btn ripple" data-close aria-label="关闭"><svg><use href="#i-close"/></svg></button>
+  </div>
+  <div class="dlg-body share-body">
+    <div class="share-code"><div class="qr-box small" id="share-qr"></div><p>邀请二维码</p></div>
+    <div class="qr-side">
+      <div class="share-summary"><span>同步服务器</span><strong id="share-server-name"></strong><span>房间号</span><strong id="share-room-code"></strong><span class="share-connection" id="share-connection"></span></div><label class="field-label" for="share-link">完整邀请链接</label>
+      <div class="link-row">
+        <input id="share-link" readonly>
+        <button class="btn filled ripple" id="btn-copy">复制</button>
+      </div>
+      <p class="muted small" id="share-hint"></p>
+      <div class="tunnel">
+        <div class="tunnel-head">
+          <span>外网访问</span>
+          <button class="btn text ripple" id="btn-tunnel">开启</button>
+        </div>
+        <p class="muted small" id="tunnel-status">朋友不在同一网络时点「开启」，程序会自动连上你的服务器并生成公网链接；连不上会自动改用 Cloudflare 备用线路。</p>
+        <div class="link-row" id="tunnel-row" hidden>
+          <input id="tunnel-link" readonly>
+          <button class="btn filled ripple" id="btn-tunnel-copy">复制</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- ================= 设置 ================= -->
+
+<dialog class="dlg help-dialog" id="dlg-help" aria-labelledby="help-title"><div class="dlg-head"><div><span class="eyebrow">一点小帮助</span><h3 id="help-title">让朋友顺利入座</h3></div><button class="icon-btn" data-close aria-label="关闭帮助"><svg><use href="#i-close"/></svg></button></div><div class="dlg-body"><div class="help-item"><span>01</span><div><h4>朋友在异地？</h4><p>创建房间后，打开「邀请好友」，开启外网访问，再复制生成的完整链接。</p></div></div><div class="help-item"><span>02</span><div><h4>收到了邀请？</h4><p>在自己的客户端选择「加入房间」，粘贴完整链接。请保留链接里的所有内容。</p></div></div><div class="help-item"><span>03</span><div><h4>视频怎么加载？</h4><p>视频由各自的设备直接加载，房间同步播放、暂停和进度。高清画质需要相应的 B 站账号权限。</p></div></div></div></dialog>
+
+<div class="room-join-notice" id="room-join-notice" role="status" aria-live="polite" aria-atomic="true" hidden><span class="join-notice-icon"><svg><use href="#i-users"/></svg></span><span class="join-notice-copy"><strong id="room-join-name"></strong><span>加入了放映室</span></span><button class="icon-btn" id="btn-dismiss-join" aria-label="关闭进房提醒"><svg><use href="#i-close"/></svg></button></div>
+<div class="snackbar" id="snackbar" role="status" aria-live="polite"></div>
+<div class="autoplay-mask" id="autoplay-mask" hidden>
+  <button class="btn filled ripple" id="btn-autoplay"><svg><use href="#i-play"/></svg>点击继续播放</button>
+  <p>浏览器拦截了自动播放，点一下就好</p>
+</div>
+
+<script src="/js/qrcode.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/danmaku.js"></script>
+<script src="/js/hls.min.js"></script>
+<script src="/js/fullscreen.js"></script>
+<script src="/js/back-navigation.js"></script>
+<script src="/js/settings-page.js"></script>
+<script src="/js/player.js"></script>
+<script src="/js/media-source.js"></script>
+<script src="/js/anime4k.js"></script>
+<script src="/js/sr.js"></script>
+<script src="/js/sync.js"></script>
+<script src="/js/phone-rooms.js"></script>
+<script src="/js/room-notice.js"></script>
+<dialog id="dlg-downloads" class="download-dialog"><form method="dialog" class="dialog-heading"><h2>本机下载</h2><button class="icon-btn" aria-label="关闭"><svg><use href="#i-close"/></svg></button></form><p class="download-note">每台设备需各自完成下载。进入同一房间后，从本机文件同步播放；房间服务只同步进度。</p><div id="download-list"></div><p id="download-empty">还没有下载。载入视频后，点击“下载到本机”。</p></dialog>
+<script src="/js/downloads.js"></script>
+<dialog id="dlg-source-anime" class="download-dialog"><form method="dialog" class="dialog-heading"><h2 id="source-anime-title">选择剧集</h2><button class="icon-btn" aria-label="关闭"><svg><use href="#i-close"/></svg></button></form><label class="source-line-label">播放线路 <select id="source-road"></select></label><div id="source-episodes" class="source-episodes"></div></dialog>
+<dialog id="dlg-source-probe" class="download-dialog source-probe-dialog"><form method="dialog" class="dialog-heading"><h2>检测并选择片源</h2><button class="icon-btn" aria-label="关闭片源检测"><svg><use href="#i-close"/></svg></button></form><p class="download-note">由你的设备检测搜索、剧集和媒体。只有媒体可读的源才能选择。</p><div class="source-probe-tools"><input id="source-probe-query" placeholder="输入想看的番名" aria-label="探测番名"><button class="btn filled" id="btn-probe-again">重新探测</button><button class="btn tonal" id="btn-source-updates">检查规则更新</button></div><p id="probe-summary" role="status"></p><div id="source-probe-list"></div></dialog>
+<script src="/js/source-engine.js"></script>
+<script src="/js/anime-sources.js"></script>
+<script src="/js/personal-account.js"></script>
+<script src="/js/chat-alerts.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/interface.js"></script>
+<script src="/js/discovery.js"></script>
+<dialog id="dlg-more" class="dlg more-dialog"><div class="dlg-head"><h3>更多</h3><button class="icon-btn" data-close aria-label="关闭">×</button></div><div class="dlg-body"><button class="btn tonal" data-more-action="nav-profile">我的账号</button><button class="btn tonal" data-more-action="btn-settings">设置</button><button class="btn tonal" data-more-action="nav-help">帮助</button></div></dialog>
+</body>
+</html>

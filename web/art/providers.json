@@ -1,0 +1,50 @@
+[
+  {
+    "id": "giri",
+    "name": "giriGiriLove",
+    "base": "https://ani.girigirilove.com",
+    "rule": "giriGiriLove",
+    "version": "2.6",
+    "hash": "7cb07edbfab784e9c2d576f0324bd39921e0575bbd36aa2a8553c170709b7aad"
+  },
+  {
+    "id": "mxdm",
+    "name": "MX 动漫",
+    "base": "https://www.dcc3.com",
+    "rule": "MXdm",
+    "version": "2.4",
+    "hash": "caa0dc0b82496a6a3adcdd30fe50a669315007d0ad337e0414f4ab2bcc9a8ad5"
+  },
+  {
+    "id": "ezdmw",
+    "name": "e站弹幕网",
+    "base": "https://m.ezdmw.org",
+    "rule": "ezdmw",
+    "version": "1.2",
+    "hash": "b54d3d3ee6f80a83878c8ccbaa5fa6f440299b704ce4406df1e42d12b393f890"
+  },
+  {
+    "id": "baimao",
+    "name": "白猫动漫",
+    "base": "https://www.baimaodm.com",
+    "rule": "baimao",
+    "version": "1.0",
+    "hash": "f3960e082db699ea063e8e4d23d904b7fd65987d58ccb9a1ee485e83dd016b68"
+  },
+  {
+    "id": "sefun",
+    "name": "七色番",
+    "base": "https://www.7sefun.top",
+    "rule": "7sefun",
+    "version": "1.3",
+    "hash": "2f05d1c1b33bf743ee5ff8e1032f39fee019dbad170315542595a8fb9d0df6d6"
+  },
+  {
+    "id": "aki",
+    "name": "秋番动漫",
+    "base": "https://www.akianime.cc",
+    "rule": "akianime",
+    "version": "1.4",
+    "hash": "afc80e2255e9336a26b8ba75797f1109eccb5b235ccc347d3a586b2811890507"
+  }
+]

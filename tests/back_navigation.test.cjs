@@ -1,0 +1,12 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+let fullscreen=true,dialogs=[],classes=new Set(['in-room']),calls=[];
+const helper={element:()=>fullscreen?{}:null,exit:()=>{fullscreen=false;calls.push('exit-fullscreen')}};
+const context=vm.createContext({window:{WatchFullscreen:helper},WatchFullscreen:helper,document:{querySelectorAll:()=>dialogs,body:{classList:{contains:x=>classes.has(x)}},getElementById:id=>({click:()=>calls.push(id)})}});
+vm.runInContext(fs.readFileSync('web/js/back-navigation.js','utf8'),context);
+const back=context.window.WatchBack;
+assert.equal(back.handle(),true);assert.deepEqual(calls,['exit-fullscreen']);
+dialogs=[{close:()=>calls.push('close-dialog')}];assert.equal(back.handle(),true);assert.equal(calls.at(-1),'close-dialog');
+dialogs=[];assert.equal(back.handle(),true);assert.equal(calls.at(-1),'btn-back');
+classes=new Set(['entering-room']);assert.equal(back.handle(),true);assert.equal(calls.at(-1),'nav-home');
+classes.clear();assert.equal(back.handle(),false);
+console.log('PASS Back exits fullscreen first, then dialogs, room and entry page; only the home screen allows application exit');
