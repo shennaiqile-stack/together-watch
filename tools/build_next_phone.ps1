@@ -28,6 +28,6 @@ if($LASTEXITCODE){throw 'Signing failed'}
 if($LASTEXITCODE){throw 'Signature verification failed'}
 & "$bt/zipalign.exe" -c 4 $apk
 if($LASTEXITCODE){throw 'Alignment verification failed'}
-$final=Join-Path $dist '一起看新版-Android-v5.4.apk'
+$final=Join-Path $dist '一起看新版-Android-v5.5.apk'
 Copy-Item -LiteralPath $apk -Destination $final -Force
 Write-Output "Built $final"

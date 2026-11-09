@@ -5,6 +5,7 @@
     const $ = (id) => document.getElementById(id);
     let items = [], featured = null, selected = null, order = 'heat', randomItems = [], snapshotTime = 0;
     let visible=48, revision='', busy=false, hasMore=true, pollTimer=null;
+    let featureGeneration=0;
     const score = (item) => Number(item.score) > 0 ? Number(item.score).toFixed(1) : '—';
     const safeItem = (item) => item && Number(item.id) > 0 && typeof item.title === 'string'
       && /^[a-f0-9]{24}\.(jpg|png)$/.test(item.file || '')
@@ -31,19 +32,42 @@
       if (lazy) node.loading = 'lazy';
       node.src = item.image;
     }
-    function chooseFeature() {
-      const choices = items.filter((item) => !featured || item.id !== featured.id);
-      featured = choices[Math.floor(Math.random() * choices.length)] || items[0];
-      if (!featured) return;
-      $('feature-title').textContent = featured.title;
-      $('feature-meta').textContent = 'Bangumi ' + score(featured) + ' 分 · ' + featured.votes.toLocaleString('zh-CN') + ' 人评价';
-      tags($('feature-tags'), featured.tags, 3);
-      attachImage($('feature-poster'), featured, false);
-      $('feature-poster').hidden = false;
-      attachImage($('feature-backdrop'),featured,false);
-      $('feature-backdrop').alt='';
-      $('feature-backdrop').hidden = false;
+    async function chooseFeature() {
+      const generation=++featureGeneration, button=$('btn-feature-shuffle');
+      if(!window.BannerArtwork)return;
+      await BannerArtwork.ready;
+      if(generation!==featureGeneration)return;
+      let choices=items.filter(item=>BannerArtwork.lookup(item));
+      const different=choices.filter(item=>!featured || item.id!==featured.id);
+      if(different.length)choices=different;
+      for(let i=choices.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[choices[i],choices[j]]=[choices[j],choices[i]];}
+      button.disabled=true;
+      try{
+        for(const item of choices.slice(0,5)){
+          const art=BannerArtwork.lookup(item);
+          const urls=[...new Set([art.image,art.imageSource])];
+          for(const url of urls){
+            try{
+              await new Promise((resolve,reject)=>{
+                const image=new Image(),timer=setTimeout(()=>{image.onload=image.onerror=null;reject(new Error('banner timeout'));},5000);
+                image.onload=()=>{clearTimeout(timer);BannerArtwork.dimensions(image.naturalWidth,image.naturalHeight)?resolve():reject(new Error('not landscape'));};
+                image.onerror=()=>{clearTimeout(timer);reject(new Error('banner unavailable'));};
+                image.referrerPolicy='no-referrer';image.src=url;
+              });
+              if(generation!==featureGeneration)return;
+              featured=item;
+              $('feature-title').textContent=item.title;
+              $('feature-meta').textContent='Bangumi '+score(item)+' 分 · '+item.votes.toLocaleString('zh-CN')+' 人评价';
+              tags($('feature-tags'),item.tags,3);
+              const image=$('feature-banner');image.src=url;image.alt='';image.hidden=false;
+              const source=$('feature-art-source');source.href=art.source;source.hidden=false;
+              return;
+            }catch(_){/* Preserve the current recommendation until a complete image is ready. */}
+          }
+        }
+      }finally{if(generation===featureGeneration)button.disabled=false;}
     }
+    window.addEventListener('wt-banner-ready',()=>{if(!featured && items.length)chooseFeature();});
     function openAnime(item) {
       selected = item;
       $('anime-title').textContent = item.title;

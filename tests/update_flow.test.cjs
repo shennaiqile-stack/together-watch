@@ -11,7 +11,7 @@ async function boot(platform,result){
   startup();await scheduled();
   return {nodes,window,call};
 }
-const release={body:'<script>unsafe()</script>',assets:[{name:'TogetherWatch-Android-v5.5.apk',state:'uploaded',size:123,browser_download_url:'https://github.com/shennaiqile-stack/together-watch/releases/download/release-2/TogetherWatch-Android-v5.5.apk'}]};
+const release={body:'<script>unsafe()</script>',assets:[{name:'TogetherWatch-Android-v5.6.apk',state:'uploaded',size:123,browser_download_url:'https://github.com/shennaiqile-stack/together-watch/releases/download/release-2/TogetherWatch-Android-v5.6.apk'}]};
 test('every Android launch checks and offers matching newer package safely',async()=>{
   const a=await boot('android',{ok:true,json:async()=>release});
   assert(a.nodes.get('dlg-app-update').open);
@@ -29,7 +29,7 @@ test('offline startup stays usable and manual retry is available',async()=>{
   assert(!a.nodes.get('dlg-app-update').open);
 });
 test('equal installed version does not prompt',async()=>{
-  const r=JSON.parse(JSON.stringify(release));r.assets[0].name='TogetherWatch-Android-v5.4.apk';
+  const r=JSON.parse(JSON.stringify(release));r.assets[0].name='TogetherWatch-Android-v5.5.apk';
   const a=await boot('android',{ok:true,json:async()=>r});
   assert.match(a.nodes.get('app-update-status').textContent,/已是最新/);assert(!a.nodes.get('dlg-app-update').open);
 });

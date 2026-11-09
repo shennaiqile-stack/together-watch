@@ -40,12 +40,12 @@ with zipfile.ZipFile(base) as original:
                 name=strings[struct.unpack_from('<I',manifest,p+4)[0]]
                 if name=='versionCode':
                     assert struct.unpack_from('<I',manifest,p+16)[0]==14
-                    struct.pack_into('<I',manifest,p+16,15);found.add(name)
+                    struct.pack_into('<I',manifest,p+16,16);found.add(name)
                 if name=='versionName':
                     index=struct.unpack_from('<I',manifest,p+16)[0]
                     assert strings[index]=='5.3'
                     start,length_bytes=positions[index]
-                    replacement='5.4'.encode('utf-8' if utf8 else 'utf-16le')
+                    replacement='5.5'.encode('utf-8' if utf8 else 'utf-16le')
                     assert len(replacement)==length_bytes
                     manifest[start:start+length_bytes]=replacement;found.add(name)
         offset+=size

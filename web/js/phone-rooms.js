@@ -1,7 +1,7 @@
 /* Native phones can join the same public Syncplay room from different networks. */
 (() => {
   'use strict';
-  if (window.PhoneRooms) window.WT_APP_VERSION = '5.4';
+  if (window.PhoneRooms) window.WT_APP_VERSION = '5.5';
 
   function server(value) {
     const match = String(value || '').trim().match(/^([a-zA-Z0-9.-]{1,253})(?::(\d{1,5}))?$/);

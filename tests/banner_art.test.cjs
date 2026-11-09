@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');
+const {normalize,allowed,match,dimensions}=require('../web/js/banner-art.js');
+const art={id:100,type:'ANIME',isAdult:false,title:{native:'テスト 第２期',romaji:'Test Season 2'},synonyms:['测试 第二季'],bannerImage:'https://s4.anilist.co/file/anilistcdn/media/anime/banner/100-test.jpg'};
+assert.equal(normalize('テスト 第２期'),'テスト第2期');
+assert.equal(match({originalTitle:'テスト 第2期',title:'测试 第二季'},[art]).id,100);
+assert.equal(match({originalTitle:'テスト 第1期',title:'测试 第一季'},[art]),null);
+assert.equal(match({originalTitle:'テスト 第2期'},[art,{...art,id:101}]),null);
+assert.equal(match({originalTitle:'テスト 第2期'},[{...art,isAdult:true}]),null);
+assert.equal(match({originalTitle:'テスト 第2期'},[{...art,type:'MANGA'}]),null);
+for(const url of ['http://s4.anilist.co/file/anilistcdn/media/anime/banner/x.jpg','https://s4.anilist.co.evil.test/file/anilistcdn/media/anime/banner/x.jpg','https://s4.anilist.co/file/anilistcdn/media/anime/cover/x.jpg','https://user:pass@s4.anilist.co/file/anilistcdn/media/anime/banner/x.jpg'])assert(!allowed(url));
+assert(allowed(art.bannerImage));assert(dimensions(1900,400));assert(!dimensions(400,600));assert(!dimensions(500,100));
+console.log('PASS: exact title matching, season separation, ambiguous matches rejected, trusted CDN and real landscape dimensions');
