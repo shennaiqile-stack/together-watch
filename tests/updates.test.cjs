@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict');
+const {newer,select}=require('../web/js/updates.js');
+const asset=(name,url='https://github.com/shennaiqile-stack/together-watch/releases/download/release-2/'+name)=>({name,browser_download_url:url,state:'uploaded',size:500});
+assert(newer('1.10.0','1.9.9'));
+assert(!newer('5.4','5.4.0'));
+assert(!newer('1.6.3','1.6.4'));
+assert(!newer('bad','1.0'));
+const release={assets:[asset('TogetherWatch-Windows-v1.6.5.exe'),asset('TogetherWatch-Android-v5.5.apk')]};
+assert.equal(select(release,'windows').version,'1.6.5');
+assert.equal(select(release,'android').version,'5.5');
+assert.equal(select({...release,prerelease:true},'windows'),null);
+assert.equal(select({assets:[asset('TogetherWatch-Android-v5.5.apk','https://evil.example/file.apk')]},'android'),null);
+assert.equal(select({assets:[{...release.assets[0],state:'new'}]},'windows'),null);
+assert.equal(select({assets:[{...release.assets[0],size:0}]},'windows'),null);
+assert.equal(select({assets:[release.assets[0],asset('TogetherWatch-Windows-v1.7.0.exe')]},'windows').version,'1.7.0');
+console.log('PASS: numeric versions, platform separation, stable releases, trusted uploaded assets');

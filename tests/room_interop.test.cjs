@@ -1,7 +1,7 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 function load(native){
  const window={SyncClient:class{},...(native?{PhoneRooms:{}}:{})};
- const context=vm.createContext({window,URL,document:{addEventListener(){}},localStorage:{getItem(){return null},setItem(){}},setTimeout,clearTimeout});
+ const context=vm.createContext({window,URL,document:{addEventListener(){}},localStorage:{value:null,getItem(){return this.value},setItem(k,v){this.value=v}},setTimeout,clearTimeout});
  vm.runInContext(fs.readFileSync('web/js/phone-rooms.js','utf8'),context);
  context.PhoneRoomMode=window.PhoneRoomMode;
  return context;
@@ -35,3 +35,17 @@ const app=fs.readFileSync('web/js/app.js','utf8');
 assert.ok(app.includes('PhoneRoomMode.endpoint.server'));
 assert.ok(app.includes('(isHost || !remote)'));
 console.log('PASS phone and PC share invite server, port and room; HTTP invitations preserved; native and desktop transports retained');
+
+for(const context of [phone,pc]){
+ const mode=context.window.PhoneRoomMode;
+ mode.saveDefault('example.net:12345');
+ assert.equal(mode.defaultServer().server,'example.net');assert.equal(mode.defaultServer().port,12345);
+ assert.throws(()=>mode.saveDefault('https://example.net:12345'));
+ assert.throws(()=>mode.saveDefault('example.net:65536'));
+ assert.equal(mode.defaultServer().port,12345);
+ context.document.getElementById=()=>null;
+ context.location={href:'https://client.test/?sync=invite.example:8996'};
+ assert.equal(mode.defaults().server,'invite.example');
+ assert.equal(mode.defaultServer().server,'example.net');
+}
+console.log('PASS device defaults persist, invalid servers rejected, invitation overrides without replacing default');

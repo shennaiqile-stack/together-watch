@@ -1,7 +1,7 @@
 /* Native phones can join the same public Syncplay room from different networks. */
 (() => {
   'use strict';
-  if (window.PhoneRooms) window.WT_APP_VERSION = '5.3';
+  if (window.PhoneRooms) window.WT_APP_VERSION = '5.4';
 
   function server(value) {
     const match = String(value || '').trim().match(/^([a-zA-Z0-9.-]{1,253})(?::(\d{1,5}))?$/);
@@ -10,12 +10,15 @@
   }
   window.PhoneRoomMode = {
     active:false, endpoint:null,
+    parseServer:server,
+    defaultServer(){try{return server(localStorage.getItem('wt.sync.server') || 'syncplay.pl:8999');}catch(_){return server('syncplay.pl:8999');}},
+    saveDefault(value){const endpoint=server(value);localStorage.setItem('wt.sync.server',endpoint.server+':'+endpoint.port);return endpoint;},
     defaults() {
       const input = document.getElementById('phone-sync-server');
-      const value = input ? input.value : localStorage.getItem('wt.sync.server') || 'syncplay.pl:8999';
+      const saved=this.defaultServer();
+      const value = input && input.value.trim() ? input.value : saved.server+':'+saved.port;
       const linked=typeof location!=='undefined'?this.fromHttp(location.href):null;
       const result = linked || server(value);
-      localStorage.setItem('wt.sync.server', result.server + ':' + result.port);
       return result;
     },
     fromHttp(text) {
@@ -133,10 +136,10 @@
   document.addEventListener('DOMContentLoaded', () => {
     if (window.PhoneRooms) document.documentElement.classList.add('native-phone');
     const input = document.getElementById('phone-sync-server');
-    input.value = localStorage.getItem('wt.sync.server') || 'syncplay.pl:8999';
+    const saved=PhoneRoomMode.defaultServer();input.value = saved.server+':'+saved.port;
     document.getElementById('phone-server-field').hidden = false;
     const description = document.querySelector('[data-settings-panel="network"] .settings-description');
-    if (description) description.textContent = '电脑与手机使用同一服务器和房号。连接不上时，可在放映室的“连接设置”中更换服务器。';
+    if (description) description.textContent = '默认同步服务器可在下方修改，保存后用于下一次开房或按房号加入。完整邀请中的服务器优先。';
     const help = document.querySelector('#dlg-help .help-item p');
     if (help) help.textContent = '创建房间后复制完整邀请，电脑与手机均可粘贴加入；只填房号时，两端服务器须一致。';
   });

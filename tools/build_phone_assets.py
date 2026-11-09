@@ -39,13 +39,13 @@ with zipfile.ZipFile(base) as original:
                 p=offset+16+attr_start+i*attr_size
                 name=strings[struct.unpack_from('<I',manifest,p+4)[0]]
                 if name=='versionCode':
-                    assert struct.unpack_from('<I',manifest,p+16)[0]==13
-                    struct.pack_into('<I',manifest,p+16,14);found.add(name)
+                    assert struct.unpack_from('<I',manifest,p+16)[0]==14
+                    struct.pack_into('<I',manifest,p+16,15);found.add(name)
                 if name=='versionName':
                     index=struct.unpack_from('<I',manifest,p+16)[0]
-                    assert strings[index]=='5.2'
+                    assert strings[index]=='5.3'
                     start,length_bytes=positions[index]
-                    replacement='5.3'.encode('utf-8' if utf8 else 'utf-16le')
+                    replacement='5.4'.encode('utf-8' if utf8 else 'utf-16le')
                     assert len(replacement)==length_bytes
                     manifest[start:start+length_bytes]=replacement;found.add(name)
         offset+=size
@@ -59,7 +59,9 @@ with zipfile.ZipFile(base) as original:
             target.writestr(info,data)
         for entry in original.infolist():
             if entry.filename.startswith(('META-INF/','assets/web/')):continue
+            if entry.filename=='classes3.dex' and len(sys.argv)>3:continue
             write(entry.filename,bytes(manifest) if entry.filename=='AndroidManifest.xml' else original.read(entry.filename),entry.compress_type)
+        if len(sys.argv)>3:write('classes3.dex',Path(sys.argv[3]).read_bytes(),zipfile.ZIP_DEFLATED)
         for path in sorted((root/'web').rglob('*')):
             if path.is_file():write('assets/web/'+path.relative_to(root/'web').as_posix(),path.read_bytes(),zipfile.ZIP_DEFLATED)
 print('Updated assets and version; preserved original native implementation')

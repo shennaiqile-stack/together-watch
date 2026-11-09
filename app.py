@@ -87,7 +87,7 @@ CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/do
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.3"
+APP_VERSION = "1.6.4"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"

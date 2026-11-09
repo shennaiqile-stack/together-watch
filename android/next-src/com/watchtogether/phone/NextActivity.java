@@ -13,7 +13,26 @@ public class NextActivity extends MainActivity {
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
+        WebView web=player(getWindow().getDecorView());
+        if(web!=null)web.addJavascriptInterface(new UpdateDownload(),"PhoneUpdates");
         if (Build.VERSION.SDK_INT >= 33) backCallback = ModernBack.register(this);
+    }
+
+    public class UpdateDownload {
+        @android.webkit.JavascriptInterface public void openDownload(String value) {
+            android.net.Uri uri=android.net.Uri.parse(value);
+            String path=uri.getPath();
+            if(!"https".equals(uri.getScheme()) || !"github.com".equals(uri.getHost()) ||
+               uri.getUserInfo()!=null || uri.getPort()!=-1 || uri.getQuery()!=null ||
+               !("/shennaiqile-stack/together-watch/releases/latest".equals(path) ||
+                 (path!=null && path.startsWith("/shennaiqile-stack/together-watch/releases/download/") && path.endsWith(".apk")))) return;
+            runOnUiThread(()->{
+                try {startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,uri));}
+                catch(android.content.ActivityNotFoundException error) {
+                    android.widget.Toast.makeText(NextActivity.this,"请先安装浏览器以下载安装包",android.widget.Toast.LENGTH_LONG).show();
+                }
+            });
+        }
     }
 
     private WebView player(View view) {

@@ -66,8 +66,6 @@
     };
     $('btn-entry-home').onclick=closeEntry;
     window.addEventListener('popstate',()=>{if(!document.body.classList.contains('in-room')){if(location.hash==='#room'){ $('screen-home').hidden=true;$('screen-room-entry').hidden=false;document.body.classList.add('entering-room');}else closeEntry();}});
-    $('btn-open-create').onclick = () => openEntry('create');
-    $('btn-open-join').onclick = () => openEntry('join');
     $('btn-discover-room').onclick = () => openEntry('create');
     $('nav-profile').onclick = () => $('dlg-account').showModal();
     $('btn-account-profile').onclick = () => { $('dlg-account').close(); $('btn-profile').click(); };

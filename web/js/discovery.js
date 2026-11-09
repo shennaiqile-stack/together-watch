@@ -16,9 +16,17 @@
       });
     }
     function attachImage(node, item, lazy) {
+      let retried=false;
+      node.classList.remove('ready');
       node.onload = () => node.classList.add('ready');
-      node.onerror = () => node.classList.remove('ready');
+      node.onerror = () => {
+        if(!retried && /^https:\/\/lain\.bgm\.tv\//.test(item.imageSource||'')){
+          retried=true;node.src=item.imageSource;return;
+        }
+        node.classList.remove('ready');
+      };
       node.alt = item.title;
+      node.referrerPolicy='no-referrer';
       node.decoding = 'async';
       if (lazy) node.loading = 'lazy';
       node.src = item.image;
@@ -32,7 +40,8 @@
       tags($('feature-tags'), featured.tags, 3);
       attachImage($('feature-poster'), featured, false);
       $('feature-poster').hidden = false;
-      $('feature-backdrop').src = featured.image;
+      attachImage($('feature-backdrop'),featured,false);
+      $('feature-backdrop').alt='';
       $('feature-backdrop').hidden = false;
     }
     function openAnime(item) {
@@ -116,7 +125,7 @@
       try {
         const response = await fetch('/art/discovery/index.json');
         const data = await response.json();
-        setItems((data.items || []).map((item) => ({...item,image:'/art/discovery/'+item.file})),data.fetchedAt);
+        setItems((data.items || []).map((item) => ({...item,image:'/api/discovery/image/'+item.file})),data.fetchedAt);
       } catch (_) { $('catalogue-status').textContent = '正在获取番剧信息…'; }
       async function refresh(action) {
         const controller = new AbortController(), timer = setTimeout(()=>controller.abort(),9000);

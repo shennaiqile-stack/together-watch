@@ -2114,6 +2114,8 @@
 
   /* ---------------- 设置 ---------------- */
   function openSettings() {
+    const endpoint=PhoneRoomMode.defaultServer();
+    document.getElementById('set-default-sync').value=endpoint.server+':'+endpoint.port;
     el.setName.value = S.config.username || '';
     el.setQuality.value = String(S.qn || 80);
     el.setMode.value = S.config.prefer_mp4 === false ? 'dash' : 'mp4';
@@ -2127,6 +2129,9 @@
   }
 
   async function saveSettings() {
+    let defaultSync;
+    try{defaultSync=PhoneRoomMode.parseServer(document.getElementById('set-default-sync').value);}
+    catch(error){toast(error.message,true);document.getElementById('set-default-sync').focus();return;}
     const body = {
       username: el.setName.value.trim(),
       quality: Number(el.setQuality.value),
@@ -2136,6 +2141,8 @@
     };
     try {
       const r = await API.post('/api/config', body);
+      PhoneRoomMode.saveDefault(defaultSync.server+':'+defaultSync.port);
+      document.getElementById('phone-sync-server').value=defaultSync.server+':'+defaultSync.port;
       S.config = r.config;
       S.qn = Number(S.config.quality) || 80;
       el.nameInput.value = S.config.username || '';
