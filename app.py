@@ -115,7 +115,7 @@ DEFAULT_CONFIG = {
     "open_mode": "app",
     "relay_host": "",
     "relay_port": 22,
-    "relay_user": "",
+    "relay_user": "Administrator",
     "relay_pass": "",
     "relay_remote_port": 8770,
     "relay_hostkey": "",
@@ -124,7 +124,14 @@ DEFAULT_CONFIG = {
 }
 
 # 内置外网访问服务器（原先 外网访问.cmd 里的配置，合并进程序后开箱即用）
-BUILTIN_RELAY = {"host":"", "user":"", "pass":"", "port":22, "remote":8770, "hostkey":""}
+BUILTIN_RELAY = {
+    "host": "154.64.252.247",
+    "port": 22,
+    "user": "Administrator",
+    "pass": "WS72zuScloySHpTm",
+    "hostkey": "SHA256:7DhRs07ihFXPQAFpHD6MKM2G7OQGG2gnpAE5XT1DKQo",
+    "remote": 8770,
+}
 
 ALLOWED_HOST_SUFFIX = (
     "bilivideo.com", "bilivideo.cn", "bilivideo.cc", "hdslb.com",

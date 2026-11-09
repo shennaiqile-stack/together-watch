@@ -5,13 +5,13 @@
 
   function server(value) {
     const match = String(value || '').trim().match(/^([a-zA-Z0-9.-]{1,253})(?::(\d{1,5}))?$/);
-    if (!match || Number(match[2] || 8999) < 1 || Number(match[2] || 8999) > 65535) throw new Error('请输入有效的同步服务器，例如 syncplay.pl:8999');
+    if (!match || Number(match[2] || 8999) < 1 || Number(match[2] || 8999) > 65535) throw new Error('请输入有效的同步服务器，例如 154.64.252.247:8999');
     return {server:match[1],port:Number(match[2] || 8999)};
   }
   window.PhoneRoomMode = {
     active:false, endpoint:null,
     parseServer:server,
-    defaultServer(){try{return server(localStorage.getItem('wt.sync.server') || 'syncplay.pl:8999');}catch(_){return server('syncplay.pl:8999');}},
+    defaultServer(){try{const saved=localStorage.getItem('wt.sync.server');return server(saved&&saved!=='syncplay.pl:8999'?saved:'154.64.252.247:8999');}catch(_){return server('154.64.252.247:8999');}},
     saveDefault(value){const endpoint=server(value);localStorage.setItem('wt.sync.server',endpoint.server+':'+endpoint.port);return endpoint;},
     defaults() {
       const input = document.getElementById('phone-sync-server');

@@ -402,7 +402,7 @@
     if (S.joined) {
       if (S.name !== name) {
         S.name = name;
-        sync.join({ server: '127.0.0.1', port: syncPort(), username: name,
+        sync.join({ server: syncServer(), port: syncPort(), username: name,
                     room: S.room, avatar: '',
                     face: (S.selfUser && S.selfUser.logged_in && S.selfUser.face) || '' });
         addSys('昵称已改为 ' + name);
@@ -690,7 +690,7 @@
     el.btnReconnect.onclick = () => {
       if (!S.room) return;
       toast('正在重新连接…');
-      sync.join({ server: '127.0.0.1', port: syncPort(), username: S.name, room: S.room,
+      sync.join({ server: syncServer(), port: syncPort(), username: S.name, room: S.room,
                   avatar: '',
                   face: (S.selfUser && S.selfUser.logged_in && S.selfUser.face) || '' });
     };
@@ -746,6 +746,12 @@
   function syncPort() {
     if (window.PhoneRoomMode && PhoneRoomMode.active) return PhoneRoomMode.endpoint.port;
     return (S.share && S.share.syncplay_port) || (S.config && S.config.syncplay_port) || 8999;
+  }
+
+  /* 默认走远程同步服务器（设置里可改），只有未启用时才退回本机内置服务 */
+  function syncServer() {
+    if (window.PhoneRoomMode && PhoneRoomMode.active && PhoneRoomMode.endpoint) return PhoneRoomMode.endpoint.server;
+    return '127.0.0.1';
   }
 
   function onKey(e) {
@@ -1053,13 +1059,13 @@
     el.connPill.hidden = false;
     el.roomChipCode.textContent = room;
     el.ptRoom.textContent = '房间 ' + room;
-    el.footServer.textContent = (remote ? remote.base.replace(/^https?:\/\//, '') : '本机') + ' · ' + syncPort();
+    el.footServer.textContent = (remote ? remote.base.replace(/^https?:\/\//, '') : (window.PhoneRoomMode && PhoneRoomMode.active ? PhoneRoomMode.endpoint.server : '本机')) + ' · ' + syncPort();
     el.chatList.innerHTML = '';
     addSys(window.PhoneRoomMode && PhoneRoomMode.active ? '正在连接异地房间 ' + room : remote ? ('已进入好友电脑上的房间 ' + room) : ('已进入房间 ' + room + '，把邀请链接发给朋友吧'));
     setConn('wait', '连接中…');
 
     try {
-      await sync.join({ server: (window.PhoneRoomMode && PhoneRoomMode.active) ? PhoneRoomMode.endpoint.server : '127.0.0.1', port: syncPort(), username: name, room,
+      await sync.join({ server: syncServer(), port: syncPort(), username: name, room,
                         avatar: '',
                         face: (S.selfUser && S.selfUser.logged_in && S.selfUser.face) || '' });
     } catch (e) {
