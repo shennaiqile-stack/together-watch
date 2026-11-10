@@ -114,15 +114,20 @@ class Downloads:
 
     def _purge(self, key):
         directory = self.root/key
-        for path in directory.glob('*'):
+        deadline = time.time() + 5
+        # 播放器可能还占着文件句柄，Windows 下删除会失败，短暂重试几次
+        while directory.exists() and time.time() < deadline:
+            for path in directory.glob('*'):
+                try:
+                    path.unlink()
+                except OSError:
+                    pass
             try:
-                path.unlink()
+                directory.rmdir()
             except OSError:
                 pass
-        try:
-            directory.rmdir()
-        except OSError:
-            pass
+            if directory.exists():
+                time.sleep(0.3)
 
     def find(self, content, qn=None):
         with self.lock:

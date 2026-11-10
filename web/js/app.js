@@ -1009,6 +1009,9 @@
       }
       room = (roomText || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (room.length < 3 || room.length > 12) { toast('房间号至少 3 位', true); return; }
+    } else {
+      /* 单人观看必须回到本机服务，避免沿用上一次好友电脑的地址 */
+      setRemoteServer('');
     }
     if (remote && !remote.phone) {
       /* 先确认能连上好友的电脑，顺便拿房主的登录态和画质配置 */

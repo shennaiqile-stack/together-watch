@@ -87,7 +87,7 @@ CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/do
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.9"
+APP_VERSION = "1.6.10"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"
@@ -1523,11 +1523,16 @@ class Handler(BaseHTTPRequestHandler):
     def _hls_index(self,segments):
         """记住分段顺序：播放清单来时预取前几个，命中分段时预取后续几个。"""
         app=self.app
+        segments=list(segments)
         with app.hls_lock:
             nxt=app.hls_next
             for i,s in enumerate(segments):nxt[s]=segments[i+1:i+13]
             if len(nxt)>4000:nxt.clear()
-            app.hls_list=list(segments)
+            if segments==app.hls_list:
+                # 同一份清单重复拉取：保留播放进度，也不再重复启动空闲预缓存
+                app.hls_touch=time.time()
+                return
+            app.hls_list=segments
             app.hls_index={u:i for i,u in enumerate(segments)}
             app.hls_at=0
             app.hls_touch=time.time()
@@ -1547,20 +1552,29 @@ class Handler(BaseHTTPRequestHandler):
                 time.sleep(4)
                 if app.hls_seq!=seq:return
                 if time.time()-app.hls_touch<12:continue
+                # 明确的下载任务优先，避免空闲预缓存和它抢带宽
+                downloads=getattr(app,'downloads',None)
+                if downloads is not None:
+                    with downloads.lock:
+                        busy=any(j['status'] in ('queued','downloading') for j in downloads.jobs.values())
+                    if busy:continue
                 with app.hls_lock:
                     segments=list(app.hls_list)
                     start=app.hls_at
                 count=len(segments)
                 if not count:return
+                added=resumed=False
                 for i in range(count):
                     if app.hls_seq!=seq:return
-                    if time.time()-app.hls_touch<12:break
+                    if time.time()-app.hls_touch<12:resumed=True;break
                     url=segments[(start+1+i)%count]
                     if self._acache_lookup(url) is not None:continue
                     entry,created=self._acache_entry(url)
                     if not created:continue
                     self._acache_download(entry,url)
+                    added=True
                     if entry['status']=='error':break
+                if not added and not resumed:return
         finally:
             with app.hls_lock:
                 if app.hls_worker==seq:app.hls_worker=0
