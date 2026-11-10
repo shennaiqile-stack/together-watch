@@ -87,7 +87,7 @@ CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/do
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.10"
+APP_VERSION = "1.6.11"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"
@@ -553,6 +553,13 @@ class App(object):
         self.hls_seq = 0
         self.hls_worker = 0
         self.hls_lock = threading.Lock()
+        self.hls_manifest = {}
+        # 预取队列：最多两条并发，避免十几个连接一起挤慢速片源
+        self.pf_lock = threading.Lock()
+        self.pf_queue = []
+        self.pf_queued = set()
+        self.pf_running = 0
+        self.pf_max = 2
         try:
             os.makedirs(self.acache_dir, exist_ok=True)
         except Exception:
@@ -1273,11 +1280,22 @@ class Handler(BaseHTTPRequestHandler):
         headers={'User-Agent':'Mozilla/5.0','Referer':anime_referer(target),'Accept-Encoding':'identity'}
         rng=self.headers.get('Range')
         if rng:headers['Range']=rng
+        if not rng:
+            # 点播清单（含 ENDLIST）短期复用，重新载入/重试不用再等 CDN
+            hit=app.hls_manifest.get(target)
+            if hit and time.time()-hit[0]<120:
+                body=hit[1]
+                with app.hls_lock:
+                    if app.hls_list and target in app.hls_index:app.hls_touch=time.time()
+                self.send_response(200);self.send_header('Content-Type','application/vnd.apple.mpegurl')
+                self.send_header('Content-Length',str(len(body)));self.send_header('Cache-Control','no-store')
+                self.end_headers();self.wfile.write(body)
+                return
         cached=self._acache_lookup(target)
         if cached is not None and (not rng or cached['status']=='done'):
             if not rng:
                 nxt=self.app.hls_next.get(target)
-                if nxt:self._acache_prefetch(nxt)
+                if nxt:self._acache_prefetch(nxt,True)
             return self._acache_serve(cached,rng)
         with open_public(target,headers,MEDIA_TLS_CONTEXT) as response:
             first=response.read(65536)
@@ -1293,8 +1311,12 @@ class Handler(BaseHTTPRequestHandler):
                     lines.append(line)
                 body=('\n'.join(lines)+'\n').encode()
                 self._hls_index(segments)
+                if '#EXT-X-ENDLIST' in data.decode('utf-8-sig'):
+                    app.hls_manifest[target]=(time.time(),body)
+                    if len(app.hls_manifest)>8:app.hls_manifest.clear()
                 self.send_response(200);self.send_header('Content-Type','application/vnd.apple.mpegurl')
-                self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
+                self.send_header('Content-Length',str(len(body)));self.send_header('Cache-Control','no-store')
+                self.end_headers();self.wfile.write(body)
                 return
             if rng:
                 # 渐进式 mp4：本次透传，同时后台把整个文件落盘，下次直接命中磁盘
@@ -1317,7 +1339,7 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception:pass
                 return self._acache_serve(entry)
             nxt=self.app.hls_next.get(target)
-            if nxt:self._acache_prefetch(nxt)
+            if nxt:self._acache_prefetch(nxt,True)
             return self._acache_tee(entry,response,first)
 
     # ---------------- 站外片源分段磁盘缓存 ----------------
@@ -1484,12 +1506,36 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             f.close()
 
-    def _acache_prefetch(self,urls):
-        for u in urls:
+    def _acache_prefetch(self,urls,front=False):
+        """把待缓存分段放进队列，最多 pf_max 条并发；front=True 时插到队首优先下。"""
+        app=self.app
+        urls=[u for u in urls if u not in app.pf_queued]
+        if not urls:return
+        spawn=0
+        with app.pf_lock:
+            if front:app.pf_queue=urls+app.pf_queue
+            else:app.pf_queue.extend(urls)
+            del app.pf_queue[200:]
+            app.pf_queued=set(app.pf_queue)
+            while app.pf_running<app.pf_max and app.pf_queue:
+                app.pf_running+=1
+                spawn+=1
+        for _ in range(spawn):
+            threading.Thread(target=self._acache_prefetch_worker,daemon=True).start()
+
+    def _acache_prefetch_worker(self):
+        app=self.app
+        while True:
+            with app.pf_lock:
+                if not app.pf_queue:
+                    app.pf_running-=1
+                    return
+                url=app.pf_queue.pop(0)
+                app.pf_queued.discard(url)
             try:
-                entry,created=self._acache_entry(u)
-                if created:
-                    threading.Thread(target=self._acache_download,args=(entry,u),daemon=True).start()
+                if self._acache_lookup(url) is None:
+                    entry,created=self._acache_entry(url)
+                    if created:self._acache_download(entry,url)
             except Exception:
                 pass
 
@@ -1540,7 +1586,7 @@ class Handler(BaseHTTPRequestHandler):
             seq=app.hls_seq
             spawn=app.hls_worker!=seq
             if spawn:app.hls_worker=seq
-        self._acache_prefetch(segments[:6])
+        self._acache_prefetch(segments[:6],True)
         if spawn:
             threading.Thread(target=self._hls_idle_worker,args=(seq,),name='acache-idle',daemon=True).start()
 
@@ -1552,7 +1598,8 @@ class Handler(BaseHTTPRequestHandler):
                 time.sleep(4)
                 if app.hls_seq!=seq:return
                 if time.time()-app.hls_touch<12:continue
-                # 明确的下载任务优先，避免空闲预缓存和它抢带宽
+                # 明确的下载任务或预取队列优先，避免空闲预缓存抢带宽
+                if app.pf_running:continue
                 downloads=getattr(app,'downloads',None)
                 if downloads is not None:
                     with downloads.lock:

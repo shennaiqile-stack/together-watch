@@ -96,6 +96,8 @@
       if(!next)throw new Error('该线路需要额外解析，暂不支持直接播放');url=next;mode=/\.m3u8(?:\?|$)/i.test(url)?'hls':'mp4';
     }
     if(!/^https?:\/\//i.test(url))throw new Error('播放地址无效');
+    // giri 等线路直接给出 m3u8 清单，交给 hls.js，否则浏览器会按 mp4 解码失败
+    if(mode==='mp4'&&/\.m3u8(?:\?|$)/i.test(url))mode='hls';
     return {ok:true,target,cid:'',page:1,qn:80,qualities:[],info:{title:info.title+' · '+episode.name,owner:c.name,provider:id,is_anime:true,duration:0,episodes:road.episodes.map(e=>({title:e.name,target:e.target})),roads:info.roads.map(r=>({title:r.name,target:r.episodes[0].target}))},source:{mode,url:'/anime-media?u='+pack(url)}};
   }
   async function probe(id,keyword,signal){

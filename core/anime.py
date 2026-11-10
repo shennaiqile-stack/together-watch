@@ -173,6 +173,7 @@ class Anime:
             text=self.get(html.unescape(match[1]));match=re.search(r'<video[^>]+src="([^"]+)"',text)
             if not match:raise ValueError('此线路暂不可用，请切换片源')
             url=U.urljoin('https://player.ezdmw.com/',html.unescape(match[1]));mode='hls'
+        if mode=='mp4' and U.urlsplit(url).path.lower().endswith('.m3u8'):mode='hls'
         title=details['title']+' · '+episode['name']
         info={'title':title,'owner':SOURCES[provider][0],'provider':provider,'is_anime':True,'duration':0,'episodes':
               [{'title':x['name'],'target':x['target']} for x in group['episodes']], 'roads':
