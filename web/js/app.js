@@ -1130,13 +1130,19 @@
     setConn(soloMode ? 'ok' : 'wait', soloMode ? '单人观看' : '连接中…');
 
     if (!soloMode) {
+      const opts = { server: syncServer(), port: syncPort(), username: name, room, avatar: '',
+                     face: (S.selfUser && S.selfUser.logged_in && S.selfUser.face) || '' };
       try {
-        await sync.join({ server: syncServer(), port: syncPort(), username: name, room,
-                          avatar: '',
-                          face: (S.selfUser && S.selfUser.logged_in && S.selfUser.face) || '' });
+        await sync.join(opts);
       } catch (e) {
-        setConn('bad', '连接失败');
-        toast(e.message, true);
+        /* 同步服务器握手偶尔超时，等一秒重试一次再判定失败 */
+        try {
+          await new Promise(done => setTimeout(done, 1200));
+          await sync.join(opts);
+        } catch (e2) {
+          setConn('bad', '连接失败');
+          toast(e2.message + '（' + opts.server + ':' + opts.port + '）', true);
+        }
       }
       startHeartbeat();
     }
