@@ -172,6 +172,7 @@
       const el = document.createElement('div');
       el.className = 'dm-item' + (fixed ? ' fixed' : '');
       el.textContent = text;
+      el.dataset.text = text;
       el.style.fontSize = fontSize + 'px';
       el.style.color = '#' + (item.c || 0xffffff).toString(16).padStart(6, '0');
       el.style.opacity = String(this.opt.opacity);

@@ -1,5 +1,7 @@
 /* 一起看 · 界面逻辑 */
 (function () {
+  /* 弹幕分享消息的标记，朋友端据此在右下角弹窗里区分显示 */
+  const DM_SHARE = '【弹幕】';
   const S = {
     version: '',
     config: {},
@@ -182,6 +184,7 @@
       el.btnSr.hidden = true;          // 浏览器不支持 WebGL2 就不显示入口
     }
     dm = new Danmaku(el.dmLayer, () => player.time);
+    bindDmShare();
     sync = new SyncClient();
     bindPlayer();
     bindSync();
@@ -864,6 +867,53 @@
     el.dmLayer.style.height = h + 'px';
   }
 
+  /* ---------------- 弹幕分享 ---------------- */
+  let dmTip = null;
+  function closeDmTip() {
+    if (!dmTip) return;
+    dmTip.remove();
+    dmTip = null;
+  }
+  function openDmTip(text, x, y) {
+    closeDmTip();
+    const tip = document.createElement('div');
+    tip.className = 'dm-share';
+    tip.innerHTML = '<p></p><div class="dm-share-actions"><button type="button" class="btn filled">分享到聊天</button><button type="button" class="icon-btn" aria-label="关闭">×</button></div>';
+    tip.querySelector('p').textContent = text;
+    tip.addEventListener('click', (e) => e.stopPropagation());
+    tip.querySelector('.btn').onclick = () => { if (shareDanmaku(text)) closeDmTip(); };
+    tip.querySelector('.icon-btn').onclick = closeDmTip;
+    el.playerShell.appendChild(tip);
+    const r = el.playerShell.getBoundingClientRect();
+    const left = Math.max(8, Math.min(x, r.width - tip.offsetWidth - 8));
+    const top = Math.max(8, Math.min(y, r.height - tip.offsetHeight - 8));
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+    dmTip = tip;
+    clearTimeout(openDmTip.timer);
+    openDmTip.timer = setTimeout(() => { if (dmTip === tip) closeDmTip(); }, 5000);
+  }
+  function shareDanmaku(text) {
+    if (!S.joined) { toast('先连上房间再分享弹幕', true); return false; }
+    const ok = sync.chat(DM_SHARE + text);
+    if (ok) toast('弹幕已分享到聊天');
+    return ok;
+  }
+  function bindDmShare() {
+    el.dmLayer.addEventListener('click', (event) => {
+      const node = event.target.closest && event.target.closest('.dm-item');
+      if (!node || !node.dataset.text) return;
+      event.stopPropagation();
+      const r = el.playerShell.getBoundingClientRect();
+      openDmTip(node.dataset.text, event.clientX - r.left, event.clientY - r.top + 18);
+    });
+    document.addEventListener('pointerdown', (event) => {
+      if (!dmTip || dmTip.contains(event.target)) return;
+      if (event.target.closest && event.target.closest('.dm-item')) return;
+      closeDmTip();
+    }, true);
+  }
+
   function updateProgress() {
     if (S.dragging) return;
     const d = player.duration || 0;
@@ -1226,7 +1276,7 @@
       applyRemote(ev);
     });
     if(window.ChatAlerts)ChatAlerts.configure(text=>{if(!S.joined){toast('请先连接房间',true);return false;}return sync.chat(text);});
-    sync.on('chat',ev=>{addChat(ev.username,ev.message);if(S.joined&&ev.username!==(S.myName||S.name)&&window.ChatAlerts)ChatAlerts.notify(ev.username,ev.message,avatarNode(ev.username));});
+    sync.on('chat',ev=>{addChat(ev.username,ev.message);if(S.joined&&ev.username!==(S.myName||S.name)&&window.ChatAlerts){const shared=ev.message.indexOf(DM_SHARE)===0;ChatAlerts.notify(ev.username,shared?'分享了一条弹幕 · '+ev.message.slice(DM_SHARE.length):ev.message,avatarNode(ev.username));}});
     sync.on('pong', (ev) => {
       if (ev.t) smoothPing(performance.now() - ev.t);
     });
