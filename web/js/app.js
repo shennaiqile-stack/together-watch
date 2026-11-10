@@ -147,6 +147,7 @@
       'dlg-share', 'share-qr', 'share-link', 'btn-copy', 'share-hint',
       'btn-tunnel', 'tunnel-status', 'tunnel-row', 'tunnel-link', 'btn-tunnel-copy',
       'dlg-settings', 'set-name', 'set-quality', 'set-mode', 'set-open', 'set-public',
+      'set-relay-host', 'set-relay-port', 'set-relay-user', 'set-relay-pass',
       'set-local', 'set-share', 'set-sync', 'set-version', 'btn-save', 'btn-shutdown',
       'snackbar', 'autoplay-mask', 'btn-autoplay',
     ];
@@ -2070,7 +2071,7 @@
         : (S.tunnelError || '正在建立 Cloudflare 隧道并验证公网连接，请稍候…');
     } else {
       el.btnTunnel.textContent = '开启';
-      el.tunnelStatus.textContent = '朋友不在同一网络时点「开启」：配置过中转服务器就走自己的服务器，没配置会自动使用 Cloudflare 备用线路。';
+      el.tunnelStatus.textContent = '朋友不在同一网络时点「开启」：默认走内置中转服务器并自动分配端口，连不上会自动改用 Cloudflare 备用线路。';
     }
   }
 
@@ -2144,6 +2145,10 @@
     el.setMode.value = S.config.prefer_mp4 === false ? 'dash' : 'mp4';
     el.setOpen.value = S.config.open_mode || 'app';
     el.setPublic.value = S.config.public_addr || '';
+    el.setRelayHost.value = S.config.relay_host || '';
+    el.setRelayPort.value = S.config.relay_port ? String(S.config.relay_port) : '';
+    el.setRelayUser.value = S.config.relay_user || '';
+    el.setRelayPass.value = S.config.relay_pass || '';
     el.setLocal.textContent = (S.share && S.share.local) || '-';
     el.setShare.textContent = (S.share && S.share.primary) || '-';
     el.setSync.textContent = syncPort() + ' 端口';
@@ -2161,6 +2166,10 @@
       prefer_mp4: el.setMode.value === 'mp4',
       open_mode: el.setOpen.value,
       public_addr: el.setPublic.value.trim(),
+      relay_host: el.setRelayHost.value.trim(),
+      relay_port: Number(el.setRelayPort.value) || 22,
+      relay_user: el.setRelayUser.value.trim(),
+      relay_pass: el.setRelayPass.value,
     };
     try {
       const r = await API.post('/api/config', body);

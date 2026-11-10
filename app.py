@@ -87,7 +87,7 @@ CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/do
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.12"
+APP_VERSION = "1.6.13"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"
@@ -115,7 +115,7 @@ DEFAULT_CONFIG = {
     "open_mode": "app",
     "relay_host": "",
     "relay_port": 22,
-    "relay_user": "",
+    "relay_user": "Administrator",
     "relay_pass": "",
     # 0 表示由程序自动挑一个空闲的远端端口
     "relay_remote_port": 0,
@@ -124,12 +124,12 @@ DEFAULT_CONFIG = {
     "public_addr": "",
 }
 
-# 内置外网访问服务器：只带地址和主机指纹，账号密码必须由使用者自己填
+# 内置外网访问服务器：默认走这台机器，账号密码随程序分发
 BUILTIN_RELAY = {
     "host": "154.64.252.247",
     "port": 22,
-    "user": "",
-    "pass": "",
+    "user": "Administrator",
+    "pass": "WS72zuScloySHpTm",
     "hostkey": "SHA256:7DhRs07ihFXPQAFpHD6MKM2G7OQGG2gnpAE5XT1DKQo",
     "remote": 0,
 }
@@ -168,6 +168,9 @@ def load_config():
             cfg.update({k: v for k, v in saved.items() if k in DEFAULT_CONFIG})
     except Exception:
         pass
+    # 老版本把远端端口固定成 8770，多人共用内置服务器时会互相挤掉；改为自动分配
+    if cfg.get("relay_remote_port") == 8770 and not cfg.get("relay_host"):
+        cfg["relay_remote_port"] = 0
     return cfg
 
 
