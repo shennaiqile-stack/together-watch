@@ -54,6 +54,7 @@
   let smsActive = false;
   let loginCloseTimer = null;
   let heartbeat = null;
+  let keepalive = null;
   let seekDebounce = null;
   let idleTimer = null;
   let presence = null;
@@ -1317,11 +1318,19 @@
           && player.video.readyState >= 3 && Date.now() >= S.overrideUntil)
         sync.state(player.time, S.roomPaused, false, true);
     }, 1500);
+    // 视频还没载入或一直缓冲时也要让服务器知道人还在，避免被当成掉线清出房间
+    keepalive = setInterval(() => {
+      if (!S.joined) return;
+      const live = player.ready && player.video.readyState >= 3 && !player.video.seeking;
+      if (!live) sync.state(0, true, false, true);
+    }, 20000);
   }
 
   function stopHeartbeat() {
     clearInterval(heartbeat);
     heartbeat = null;
+    clearInterval(keepalive);
+    keepalive = null;
   }
 
   function setConn(cls, text) {

@@ -23,7 +23,8 @@ SERVER_STATE_INTERVAL = 1.0
 PROTOCOL_TIMEOUT = 12.5
 # 观众只是「在看」时可以完全不发消息（视频还没载入 / 一直暂停着），
 # 所以断线判定要比协议超时宽松得多，否则观众会每十几秒被踢一次、反复重连。
-WATCHER_IDLE_TIMEOUT = 55.0
+# 前端每隔 20 秒会补一次保活，这里只用来清理真正掉线、收不到 TCP 关闭的连接。
+WATCHER_IDLE_TIMEOUT = 300.0
 MAX_USERNAME = 16
 MAX_ROOM = 35
 MAX_CHAT = 150
