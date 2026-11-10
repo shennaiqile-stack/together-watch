@@ -12,10 +12,11 @@ from core.anime import unwrap_segment
 
 
 class Downloads:
-    def __init__(self, directory, resolve, opener):
+    def __init__(self, directory, resolve, opener, log=None):
         self.root = Path(directory)
         self.root.mkdir(parents=True, exist_ok=True)
         self.resolve, self.opener = resolve, opener
+        self.log = log or (lambda _message: None)
         self.lock = threading.RLock()
         self.jobs, self.cancelled = {}, set()
         self.gate = threading.Semaphore(1)
@@ -119,6 +120,7 @@ class Downloads:
                     job.update(source=local, status='complete', size=job['have'],error='')
                     self._save(job)
             except Exception as e:
+                self.log('[downloads] %s 失败：%r' % (job.get('title'), e))
                 with self.lock:
                     job.update(status='cancelled' if isinstance(e,InterruptedError) else 'error',
                                error='下载已取消' if isinstance(e,InterruptedError) else '下载未完成，请检查网络后重试')
@@ -137,7 +139,14 @@ class Downloads:
         temp = path.with_suffix(path.suffix+'.part')
         with self.opener(url, headers) as response:
             expected = int(response.headers.get('Content-Length') or 0)
-            if response.status != 200:
+            if response.status == 206:
+                # 部分片源 CDN 即使没请求 Range 也返回 206，用 Content-Range 换算总长
+                match = re.fullmatch(r'bytes (\d+)-(\d+)/(\d+)', response.headers.get('Content-Range', ''))
+                if match and int(match.group(1)) != 0:
+                    raise IOError('下载源返回了不完整的分段')
+                if match:
+                    expected = int(match.group(3))
+            elif response.status != 200:
                 raise IOError('下载源未返回完整文件')
             if playlist:
                 data = response.read(4*1024*1024+1)

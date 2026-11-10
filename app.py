@@ -87,7 +87,7 @@ CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/do
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.7"
+APP_VERSION = "1.6.8"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"
@@ -525,7 +525,7 @@ class App(object):
         self.discovery = Discovery(os.path.join(DATA_DIR, 'discovery'), os.path.join(WEB_DIR, 'art', 'discovery'), MEDIA_TLS_CONTEXT)
         self.anime = Anime(MEDIA_TLS_CONTEXT)
         self.downloads = Downloads(os.path.join(DATA_DIR, 'downloads'), self.download_target,
-                                   lambda url, headers: open_public(url, headers, MEDIA_TLS_CONTEXT))
+                                   lambda url, headers: open_public(url, headers, MEDIA_TLS_CONTEXT), self.log)
         self.vcache = {}
         self.vcache_lock = threading.Lock()
         self.vcache_dir = os.path.join(DATA_DIR, "vcache")
@@ -1355,7 +1355,7 @@ class Handler(BaseHTTPRequestHandler):
         cleaned=unwrap_segment(first)
         removed=len(first)-len(cleaned)
         entry['ctype']=response.headers.get('Content-Type') or entry['ctype']
-        self.send_response(response.status)
+        self.send_response(200)
         self.send_header('Content-Type',entry['ctype'])
         for name in ('Content-Length','Accept-Ranges'):
             if response.headers.get(name):self.send_header(name,str(int(response.headers[name])-removed) if name=='Content-Length' else response.headers[name])
@@ -1508,9 +1508,9 @@ class Handler(BaseHTTPRequestHandler):
     def _hls_index(self,segments):
         """记住分段顺序：播放清单来时预取前几个，命中分段时预取后续几个。"""
         nxt=self.app.hls_next
-        for i,s in enumerate(segments):nxt[s]=segments[i+1:i+4]
+        for i,s in enumerate(segments):nxt[s]=segments[i+1:i+13]
         if len(nxt)>4000:nxt.clear()
-        self._acache_prefetch(segments[:3])
+        self._acache_prefetch(segments[:6])
 
     def _acache_gc(self):
         """缓存目录超过上限时，删最旧的分段（不动下载中的）。"""
