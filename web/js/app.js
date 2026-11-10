@@ -2070,7 +2070,7 @@
         : (S.tunnelError || '正在建立 Cloudflare 隧道并验证公网连接，请稍候…');
     } else {
       el.btnTunnel.textContent = '开启';
-      el.tunnelStatus.textContent = '朋友不在同一网络时点「开启」，程序会自动连上你的服务器并生成公网链接；连不上会自动改用 Cloudflare 备用线路。';
+      el.tunnelStatus.textContent = '朋友不在同一网络时点「开启」：配置过中转服务器就走自己的服务器，没配置会自动使用 Cloudflare 备用线路。';
     }
   }
 

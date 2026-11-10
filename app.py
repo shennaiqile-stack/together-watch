@@ -87,7 +87,7 @@ CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/do
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.11"
+APP_VERSION = "1.6.12"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"
@@ -115,22 +115,23 @@ DEFAULT_CONFIG = {
     "open_mode": "app",
     "relay_host": "",
     "relay_port": 22,
-    "relay_user": "Administrator",
+    "relay_user": "",
     "relay_pass": "",
-    "relay_remote_port": 8770,
+    # 0 表示由程序自动挑一个空闲的远端端口
+    "relay_remote_port": 0,
     "relay_hostkey": "",
     "access_token": "",
     "public_addr": "",
 }
 
-# 内置外网访问服务器（原先 外网访问.cmd 里的配置，合并进程序后开箱即用）
+# 内置外网访问服务器：只带地址和主机指纹，账号密码必须由使用者自己填
 BUILTIN_RELAY = {
     "host": "154.64.252.247",
     "port": 22,
-    "user": "Administrator",
-    "pass": "WS72zuScloySHpTm",
+    "user": "",
+    "pass": "",
     "hostkey": "SHA256:7DhRs07ihFXPQAFpHD6MKM2G7OQGG2gnpAE5XT1DKQo",
-    "remote": 8770,
+    "remote": 0,
 }
 
 ALLOWED_HOST_SUFFIX = (
@@ -2338,6 +2339,8 @@ class Relay(object):
         self.lock = threading.RLock()
         self._desired = False
         self._generation = 0
+        # 自动分配远端端口时记录试过的端口，避免重连反复撞同一个
+        self._tried = []
 
     def info(self):
         with self.lock:
@@ -2376,18 +2379,19 @@ class Relay(object):
     def start(self):
         cfg = self.app.cfg
         host = (cfg.get("relay_host") or BUILTIN_RELAY["host"]).strip()
-        user = (cfg.get("relay_user") or BUILTIN_RELAY["user"]).strip()
-        pwd = cfg.get("relay_pass") or BUILTIN_RELAY["pass"]
+        user = (cfg.get("relay_user") or BUILTIN_RELAY.get("user") or "").strip()
+        pwd = cfg.get("relay_pass") or BUILTIN_RELAY.get("pass") or ""
         port = int(cfg.get("relay_port") or BUILTIN_RELAY["port"])
-        remote = int(cfg.get("relay_remote_port") or BUILTIN_RELAY["remote"])
+        remote = int(cfg.get("relay_remote_port") or 0)
         local = int(cfg.get("port") or 8770)
         with self.lock:
             if self.status in ("starting", "running"):
                 return False
             if not host or not user or not pwd:
-                self.error = "请先填服务器地址、用户名和密码"
+                self.error = "未配置中转服务器账号密码，改用备用线路"
                 self.status = "error"
                 return False
+            self._tried = []
             self.status = "starting"
             self.error = ""
             self._desired = True
@@ -2455,13 +2459,28 @@ class Relay(object):
                 self.error = "正在恢复外网连接"
             time.sleep(min(2 ** min(failures, 4), 15))
 
+    def _pick_remote(self):
+        """自动选一个远端端口：随机取，并避开本次已经试过的值。"""
+        for _ in range(40):
+            candidate = random.randrange(20000, 30000)
+            if candidate not in self._tried:
+                self._tried.append(candidate)
+                del self._tried[:-20]
+                return candidate
+        return random.randrange(20000, 30000)
+
     def _connect_once(self, host, port, user, pwd, remote, local, generation):
         plink = self._plink()
         if not plink:
             self.error = "程序里缺少 plink.exe"
             self.status = "error"
             return
-        key = (self.app.cfg.get("relay_hostkey") or "").strip() or BUILTIN_RELAY["hostkey"]
+        if not remote:
+            remote = self._pick_remote()
+        # 内置指纹只对内置服务器有效，换成自己的服务器时现场取
+        key = (self.app.cfg.get("relay_hostkey") or "").strip()
+        if not key and host == BUILTIN_RELAY["host"]:
+            key = BUILTIN_RELAY.get("hostkey", "")
         base = [plink, "-ssh", "-l", user, "-pw", pwd, "-batch", "-noshare", "-P", str(port)]
         if not key:
             text = self._run_plink(base + [host, "echo ok"], timeout=25)
