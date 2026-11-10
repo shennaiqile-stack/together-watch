@@ -212,8 +212,17 @@
 
       if(source.mode==='hls' && window.Hls && Hls.isSupported()) {
         const hls=this._hls=new Hls({maxBufferLength:40,maxMaxBufferLength:80,enableWorker:true});
+        let retries=0;
+        const types=Hls.ErrorTypes||{};
         hls.attachMedia(v);hls.loadSource(source.url);
-        hls.on(Hls.Events.ERROR,(_,data)=>{if(data.fatal && this._hls===hls){this._phase('error');this.emit('error',new Error('视频分段加载失败，请切换线路或重试'));}});
+        hls.on(Hls.Events.ERROR,(_,data)=>{
+          if(!data.fatal||this._hls!==hls)return;
+          // 网络抖动/解码错误先原地恢复，避免朋友端直接黑屏
+          if(retries<2&&data.type===types.NETWORK_ERROR){retries++;try{hls.startLoad();}catch(_){}return;}
+          if(retries<2&&data.type===types.MEDIA_ERROR){retries++;try{hls.recoverMediaError();}catch(_){}return;}
+          this._phase('error');this.emit('error',new Error('视频分段加载失败，请切换线路或重试'));
+        });
+        hls.on(Hls.Events.MANIFEST_PARSED,()=>{retries=0;});
       } else {
         v.src = source.mode === 'dash' ? source.video : source.url;
         v.load();

@@ -87,13 +87,15 @@
       const html=await text(url,signal),match=html.match(/var danmuPlayer1\s*=\s*"([^"]+)"/);if(!match)throw new Error('播放线路暂不可用');
       url=absolute(playerUrl(await text(match[1].replace(/&amp;/g,'&'),signal)),'https://player.ezdmw.com/');mode='hls';
     }else if(id!=='giri'){
-      let raw=await text(url,signal),next=playerUrl(raw);
+      let raw=await text(url,signal),next=playerUrl(raw),kind='';
       // Follow a bounded number of ordinary public player pages, without executing scripts.
       for(let i=0;i<2&&next&&!/\.(mp4|m3u8|webm)(?:\?|$)/i.test(next);i++){
-        const value=await http(next,{probe:true,signal});if(['mp4','ts','webm','hls'].includes(value.kind))break;
+        const value=await http(next,{probe:true,signal});if(['mp4','ts','webm','hls'].includes(value.kind)){kind=value.kind;break;}
         next=playerUrl(await text(next,signal));
       }
-      if(!next)throw new Error('该线路需要额外解析，暂不支持直接播放');url=next;mode=/\.m3u8(?:\?|$)/i.test(url)?'hls':'mp4';
+      if(!next)throw new Error('该线路需要额外解析，暂不支持直接播放');url=next;
+      // 以探测结果为准：无扩展名的地址也可能是 HLS 清单
+      mode=(kind==='hls'||/\.m3u8(?:\?|$)/i.test(url))?'hls':'mp4';
     }
     if(!/^https?:\/\//i.test(url))throw new Error('播放地址无效');
     // giri 等线路直接给出 m3u8 清单，交给 hls.js，否则浏览器会按 mp4 解码失败

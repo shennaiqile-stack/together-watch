@@ -2213,7 +2213,8 @@
     el.setRelayHost.value = S.config.relay_host || '';
     el.setRelayPort.value = S.config.relay_port ? String(S.config.relay_port) : '';
     el.setRelayUser.value = S.config.relay_user || '';
-    el.setRelayPass.value = S.config.relay_pass || '';
+    el.setRelayPass.value = '';
+    el.setRelayPass.placeholder = S.config.relay_pass_set ? '已保存，留空表示不修改' : '中转服务器密码';
     el.setLocal.textContent = (S.share && S.share.local) || '-';
     el.setShare.textContent = (S.share && S.share.primary) || '-';
     el.setSync.textContent = syncPort() + ' 端口';
@@ -2234,8 +2235,8 @@
       relay_host: el.setRelayHost.value.trim(),
       relay_port: Number(el.setRelayPort.value) || 22,
       relay_user: el.setRelayUser.value.trim(),
-      relay_pass: el.setRelayPass.value,
     };
+    if (el.setRelayPass.value) body.relay_pass = el.setRelayPass.value;
     try {
       const r = await API.post('/api/config', body);
       PhoneRoomMode.saveDefault(defaultSync.server+':'+defaultSync.port);

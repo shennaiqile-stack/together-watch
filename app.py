@@ -87,7 +87,7 @@ CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/do
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.16"
+APP_VERSION = "1.6.17"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"
@@ -719,6 +719,41 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return {}
 
+    def _public_config(self):
+        """返回给前端的配置副本：不包含中转密码和访问口令。"""
+        data = dict(self.app.cfg)
+        data.pop("relay_pass", None)
+        data.pop("access_token", None)
+        data["relay_pass_set"] = bool(self.app.cfg.get("relay_pass") or BUILTIN_RELAY.get("pass"))
+        return data
+
+    def _caller_has_token(self):
+        token = self.app.cfg.get("access_token") or ""
+        if not token:
+            return False
+        qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        if (qs.get("k") or [""])[0] == token:
+            return True
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            name, _, value = part.strip().partition("=")
+            if name == "wtk" and value == token:
+                return True
+        return False
+
+    def _origin_ok(self):
+        """POST 只接受同源、本机页面或原生客户端，挡住网页 CSRF。"""
+        origin = (self.headers.get("Origin") or "").strip()
+        if not origin or origin == "null":
+            return True
+        try:
+            parts = urllib.parse.urlsplit(origin)
+            host = (parts.hostname or "").lower()
+        except Exception:
+            return False
+        if host in ("127.0.0.1", "localhost", "::1"):
+            return True
+        return parts.netloc.lower() == (self.headers.get("Host") or "").lower()
+
     # ---------------- 路由 ----------------
     def do_OPTIONS(self):
         self.send_response(204)
@@ -876,6 +911,8 @@ class Handler(BaseHTTPRequestHandler):
         self.app.touch()
         if not self._allow():
             return self._deny()
+        if not self._origin_ok():
+            return self._err("来源不合法", 403)
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         try:
@@ -908,7 +945,7 @@ class Handler(BaseHTTPRequestHandler):
                     if k in body:
                         self.app.cfg[k] = body[k]
                 save_config(self.app.cfg)
-                return self._json({"ok": True, "config": self.app.cfg})
+                return self._json({"ok": True, "config": self._public_config()})
             if path == "/api/sr-report":
                 body = self._body()
                 try:
@@ -1007,13 +1044,17 @@ class Handler(BaseHTTPRequestHandler):
 
     def _api_state(self):
         nav = self.app.bili.nav()
+        relay = self.app.relay.info()
+        # 口令只回给本机页面或已持有口令的调用方
+        if relay.get("token") and not (self._device_local() or self._caller_has_token()):
+            relay = dict(relay, token="")
         return self._json({
             "ok": True,
             "version": APP_VERSION,
             "user": nav,
-            "config": self.app.cfg,
+            "config": self._public_config(),
             "share": self.app.share(),
-            "relay": self.app.relay.info(),
+            "relay": relay,
             "syncplay": {
                 "running": self.app.sync_server is not None,
                 "port": int(self.app.cfg.get("syncplay_port") or 8999),
@@ -2344,6 +2385,8 @@ class Relay(object):
         self._generation = 0
         # 自动分配远端端口时记录试过的端口，避免重连反复撞同一个
         self._tried = []
+        # 记住上一次成功使用的远端端口，重连时优先复用，保证好友链接不变
+        self._last_remote = 0
 
     def info(self):
         with self.lock:
@@ -2408,7 +2451,7 @@ class Relay(object):
         try:
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             request = urllib.request.Request(url + "/api/health?k=" + urllib.parse.quote(token), headers={"Cache-Control":"no-cache"})
-            with opener.open(request, timeout=4) as response:
+            with opener.open(request, timeout=8) as response:
                 data = json.loads(response.read(16384))
             return data.get("app") == APP_NAME and data.get("instance") == self.app.instance_id
         except Exception:
@@ -2432,20 +2475,31 @@ class Relay(object):
 
     def _run(self, host, port, user, pwd, remote, local, generation):
         failures = 0
+        auto = not remote
         while self._desired and self._generation == generation:
-            self._connect_once(host, port, user, pwd, remote, local, generation)
+            used = remote or self._last_remote
+            self._connect_once(host, port, user, pwd, used, local, generation, auto)
             if not self._desired or self._generation != generation:
                 return
             if self.status == "running":
                 failures = 0
+                misses = 0
                 while self._desired and self._generation == generation:
                     # Polling the process alone misses a live SSH session whose
                     # forwarded port is no longer reachable.
                     time.sleep(8)
                     if not self._desired or self._generation != generation:
                         return
-                    if self.proc is None or self.proc.poll() is not None or not self._probe(self.url, self.app.cfg.get("access_token") or ""):
-                        self.app.log("[relay] 外网连接中断，自动重新连接")
+                    if self.proc is None or self.proc.poll() is not None:
+                        self.app.log("[relay] 隧道进程已退出，自动重新连接")
+                        break
+                    if self._probe(self.url, self.app.cfg.get("access_token") or ""):
+                        misses = 0
+                        continue
+                    misses += 1
+                    # 单次探测失败常常只是推流占满上行，连续失败才判定断开
+                    if misses >= 3:
+                        self.app.log("[relay] 外网连接连续 3 次探测失败，自动重新连接")
                         break
             with self.lock:
                 if not self._desired or self._generation != generation:
@@ -2472,14 +2526,15 @@ class Relay(object):
                 return candidate
         return random.randrange(20000, 30000)
 
-    def _connect_once(self, host, port, user, pwd, remote, local, generation):
+    def _connect_once(self, host, port, user, pwd, remote, local, generation, auto=False):
         plink = self._plink()
         if not plink:
             self.error = "程序里缺少 plink.exe"
             self.status = "error"
             return
         if not remote:
-            remote = self._pick_remote()
+            # 优先复用上次成功的端口，好友链接才不会变
+            remote = self._last_remote or self._pick_remote()
         # 内置指纹只对内置服务器有效，换成自己的服务器时现场取
         key = (self.app.cfg.get("relay_hostkey") or "").strip()
         if not key and host == BUILTIN_RELAY["host"]:
@@ -2530,6 +2585,9 @@ class Relay(object):
                 pass
             self.error = "隧道进程退出了（服务器可能未开启 GatewayPorts 或端口被占用）" + detail
             self.status = "error"
+            # 复用端口失败说明被占用，下一次换一个新端口
+            if auto:
+                self._last_remote = 0
             return
         token = self.app.cfg.get("access_token") or ""
         if not token:
@@ -2538,6 +2596,8 @@ class Relay(object):
             save_config(self.app.cfg)
         url = "http://%s:%d" % (host, remote)
         if not self._probe(url, token):
+            if auto:
+                self._last_remote = 0
             with self.lock:
                 if self._desired and self._generation == generation:
                     self.status = "starting"
@@ -2546,6 +2606,7 @@ class Relay(object):
         with self.lock:
             if not self._desired or self._generation != generation:
                 return
+            self._last_remote = remote
             self.url = url
             self.status = "running"
             self.error = ""
