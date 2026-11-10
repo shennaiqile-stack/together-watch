@@ -85,6 +85,45 @@ class Downloads:
                 self.cancelled.add(key)
         return self.snapshot()
 
+    def remove(self, key):
+        """删除任务；正在下载的先取消，等后台线程收尾后再清理已落地的文件。"""
+        with self.lock:
+            job = self.jobs.get(key)
+            if not job:
+                return self.snapshot()
+            active = job['status'] in ('queued', 'downloading')
+            self.cancelled.add(key)
+            if not active:
+                self.jobs.pop(key, None)
+        if active:
+            threading.Thread(target=self._purge_after, args=(key,), name='download-remove', daemon=True).start()
+        else:
+            self._purge(key)
+        return self.snapshot()
+
+    def _purge_after(self, key):
+        deadline = time.time() + 60
+        while time.time() < deadline:
+            with self.lock:
+                job = self.jobs.get(key)
+                if not job or job['status'] not in ('queued', 'downloading'):
+                    self.jobs.pop(key, None)
+                    break
+            time.sleep(0.2)
+        self._purge(key)
+
+    def _purge(self, key):
+        directory = self.root/key
+        for path in directory.glob('*'):
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
+
     def find(self, content, qn=None):
         with self.lock:
             choices = [j for j in self.jobs.values() if j['content']==content and j['status']=='complete'

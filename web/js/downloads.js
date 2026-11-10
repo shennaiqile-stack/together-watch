@@ -41,6 +41,7 @@
         else if(item.size>0)progress.value=Math.min(99,100*item.have/item.size);
         if(item.status==='queued')progress.value=0;
         text.appendChild(progress); row.appendChild(text);
+        const actions=document.createElement('div'); actions.className='download-actions';
         const action=document.createElement('button');action.className='btn tonal';
         if(item.status==='complete'){
           action.textContent='同步播放'; action.onclick=()=>{ $('dlg-downloads').close(); window.dispatchEvent(new CustomEvent('wt-download-play',{detail:item})); };
@@ -49,7 +50,16 @@
         } else {
           action.textContent='重新载入';action.onclick=()=>{ $('dlg-downloads').close();toast('重新载入视频后，点击“下载到本机”重试');window.dispatchEvent(new CustomEvent('wt-download-play',{detail:{...item,retry:true}})); };
         }
-        row.appendChild(action);$('download-list').appendChild(row);
+        actions.appendChild(action);
+        if(item.status!=='queued'&&item.status!=='downloading'){
+          const remove=document.createElement('button');remove.className='btn text';remove.textContent='删除';
+          remove.onclick=async()=>{
+            if(!confirm('删除「'+item.title+'」及已下载的文件？'))return;
+            try{await local('/api/downloads/remove',{id:item.id});refresh();}catch(e){toast(e.message,true);}
+          };
+          actions.appendChild(remove);
+        }
+        row.appendChild(actions);$('download-list').appendChild(row);
       });
       clearTimeout(timer); if($('dlg-downloads').open)timer=setTimeout(refresh,1500);
     }catch(e){$('download-empty').hidden=false;$('download-empty').textContent=e.message;}

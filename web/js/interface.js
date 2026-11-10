@@ -5,26 +5,33 @@
   let createRoom = '', joinRoom = '';
   function setMode(mode) {
     if (window.WT_MEDIA_BASE && !window.PhoneRooms) mode = 'join';
-    const join = mode === 'join';
+    const join = mode === 'join', solo = mode === 'solo';
     const previous = document.body.dataset.homeMode || 'create';
     if (previous !== mode) {
-      if (join) { createRoom = $('room-input').value; $('room-input').value = joinRoom; }
-      else { joinRoom = $('room-input').value; $('room-input').value = createRoom; }
+      const value = $('room-input').value;
+      if (join) { createRoom = value; $('room-input').value = joinRoom; }
+      else if (previous === 'join') { joinRoom = value; $('room-input').value = createRoom; }
     }
     document.body.dataset.homeMode = mode;
     $('invite-field').hidden = !join;
-    $('btn-create').hidden = join;
+    $('room-input').closest('.field').hidden = solo;
+    $('btn-create').hidden = join || solo;
     $('btn-join').hidden = !join;
-    $('btn-random').hidden = join;
-    $('btn-hero-create').classList.toggle('selected', !join);
+    $('btn-solo').hidden = !solo;
+    $('btn-random').hidden = join || solo;
+    $('btn-hero-create').classList.toggle('selected', !join && !solo);
     $('btn-hero-join').classList.toggle('selected', join);
-    $('btn-hero-create').setAttribute('aria-pressed', String(!join));
+    $('btn-hero-solo').classList.toggle('selected', solo);
+    $('btn-hero-create').setAttribute('aria-pressed', String(!join && !solo));
     $('btn-hero-join').setAttribute('aria-pressed', String(join));
+    $('btn-hero-solo').setAttribute('aria-pressed', String(solo));
     $('room-input-label').textContent = join ? '房间号（或粘贴完整邀请自动填写）' : '你的房间号';
     $('room-field-hint').textContent = join ? '邀请链接会自动选择服务器；只填房号时，两端服务器须一致。' : '已为你准备好，也可以换一个喜欢的。';
-    $('entry-title').textContent=join?'加入好友的放映':'开始一场放映';
-    $('entry-description').textContent = join ? '带上朋友的邀请，加入同一段精彩。' : (window.PhoneRooms ? '创建跨设备房间，复制邀请给电脑或手机。' : '做这场放映的发起人，邀请朋友来坐坐。');
-    $('entry-footnote').textContent = join ? '粘贴完整链接，即可连接朋友的外网房间。' : (window.PhoneRooms ? '电脑与手机都可用完整邀请加入。视频由各自设备加载。' : '进入后选择视频，再把邀请链接发给朋友。');
+    $('entry-title').textContent = solo ? '一个人，慢慢看' : (join ? '加入好友的放映' : '开始一场放映');
+    $('entry-description').textContent = solo ? '不建房间，也不连接任何人，安静地看完这一场。'
+      : (join ? '带上朋友的邀请，加入同一段精彩。' : (window.PhoneRooms ? '创建跨设备房间，复制邀请给电脑或手机。' : '做这场放映的发起人，邀请朋友来坐坐。'));
+    $('entry-footnote').textContent = solo ? '进入后粘贴视频链接即可播放，播放进度只保存在本机。'
+      : (join ? '粘贴完整链接，即可连接朋友的外网房间。' : (window.PhoneRooms ? '电脑与手机都可用完整邀请加入。视频由各自设备加载。' : '进入后选择视频，再把邀请链接发给朋友。'));
   }
   function openEntry(mode, title) {
     if (window.WT_MEDIA_BASE && !window.PhoneRooms) mode = 'join';

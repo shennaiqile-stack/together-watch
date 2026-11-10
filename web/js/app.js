@@ -10,6 +10,7 @@
     name: '',
     isHost: true,
     joined: false,
+    solo: false,
     profile: null,
     users: [],
     bvid: '',
@@ -121,7 +122,7 @@
       'appbar', 'btn-back', 'room-chip', 'room-chip-code', 'conn-pill', 'conn-text',
       'btn-share', 'btn-settings', 'screen-home', 'screen-room',
       'name-input', 'server-input', 'room-input', 'btn-random', 'btn-create', 'btn-join',
-      'btn-hero-create', 'btn-hero-join', 'server-badge',
+      'btn-hero-create', 'btn-hero-join', 'btn-hero-solo', 'btn-solo', 'server-badge',
       'login-strip', 'avatar', 'login-title', 'login-sub', 'btn-login',
       'player-shell', 'video', 'audio', 'dm-layer', 'pt-title', 'pt-room', 'pt-members',
       'pt-rtt', 'player-center', 'big-play', 'big-play-icon', 'player-empty',
@@ -537,6 +538,8 @@
     el.btnJoin.onclick = () => enterRoom(el.roomInput.value, el.nameInput.value, false);
     el.btnHeroCreate.onclick = () => window.WatchInterface.setMode('create');
     el.btnHeroJoin.onclick = () => window.WatchInterface.setMode('join');
+    el.btnHeroSolo.onclick = () => window.WatchInterface.setMode('solo');
+    el.btnSolo.onclick = () => enterRoom('', el.nameInput.value, false, true);
     el.btnRandom.onclick = () => { el.roomInput.value = randomRoom(); };
     el.roomInput.addEventListener('input', () => {
       const pos = el.roomInput.selectionStart;
@@ -986,24 +989,27 @@
   }
 
   /* ---------------- 房间 ---------------- */
-  async function enterRoom(roomRaw, nameRaw, isHost) {
+  async function enterRoom(roomRaw, nameRaw, isHost, solo) {
+    const soloMode = !!solo;
     window.RoomJoinNotice.prime();
     if(window.ChatAlerts)ChatAlerts.prime();
-    /* 先看「好友的电脑」：填了就连房主的服务器，链接里带的房间号优先 */
-    const remote = setRemoteServer(!isHost && el.serverInput ? el.serverInput.value : '');
-    if (remote === false) return;
-    if (window.PhoneRoomMode && (isHost || !remote)) {
-      try { PhoneRoomMode.use(PhoneRoomMode.defaults()); }
-      catch (error) { toast(error.message, true); return; }
+    let remote = false, room = '';
+    if (!soloMode) {
+      /* 先看「好友的电脑」：填了就连房主的服务器，链接里带的房间号优先 */
+      remote = setRemoteServer(!isHost && el.serverInput ? el.serverInput.value : '');
+      if (remote === false) return;
+      if (window.PhoneRoomMode && (isHost || !remote)) {
+        try { PhoneRoomMode.use(PhoneRoomMode.defaults()); }
+        catch (error) { toast(error.message, true); return; }
+      }
+      let roomText = roomRaw;
+      if (remote && remote.room) {
+        roomText = remote.room;
+        if (el.roomInput) el.roomInput.value = remote.room;
+      }
+      room = (roomText || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (room.length < 3 || room.length > 12) { toast('房间号至少 3 位', true); return; }
     }
-
-    let roomText = roomRaw;
-    if (remote && remote.room) {
-      roomText = remote.room;
-      if (el.roomInput) el.roomInput.value = remote.room;
-    }
-    const room = (roomText || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (room.length < 3 || room.length > 12) { toast('房间号至少 3 位', true); return; }
     if (remote && !remote.phone) {
       /* 先确认能连上好友的电脑，顺便拿房主的登录态和画质配置 */
       try {
@@ -1025,9 +1031,10 @@
     // First-run profile setup may complete while the remote state request is pending.
     let name = ((el.nameInput && el.nameInput.value) || nameRaw || '').trim();
     if (!name) name = (S.config && S.config.username) || ('观众' + Math.floor(Math.random() * 90 + 10));
-    S.room = room;
+    S.room = soloMode ? '' : room;
     S.name = name;
-    S.isHost = !!isHost;
+    S.isHost = !!isHost && !soloMode;
+    S.solo = soloMode;
     presence.stop();
     S.users = [];
     S.bvid = '';
@@ -1041,7 +1048,7 @@
     player.reset();
     el.playerEmpty.hidden = false;
     el.videoTitle.textContent = '还没有加载视频';
-    el.videoSub.textContent = '房主输入 BV 号后，其他人会自动载入';
+    el.videoSub.textContent = soloMode ? '粘贴视频链接、BV 号或番剧链接即可开始' : '房主输入 BV 号后，其他人会自动载入';
     el.ptTitle.textContent = '还没有视频';
     el.nameInput.value = name;
     if (isHost) API.post('/api/config', { username: name }).catch(() => {});
@@ -1051,28 +1058,33 @@
     if(entryPage)entryPage.hidden=true;
     document.body.classList.remove('entering-room');
     document.body.classList.add('in-room');
+    document.body.classList.toggle('solo-watch', soloMode);
     el.screenRoom.hidden = false;
     el.btnBack.hidden = false;
-    el.btnShare.hidden = false;
+    el.btnShare.hidden = soloMode;
     el.btnSearch.hidden = false;
     el.roomChip.hidden = false;
     el.connPill.hidden = false;
-    el.roomChipCode.textContent = room;
-    el.ptRoom.textContent = '房间 ' + room;
-    el.footServer.textContent = (remote ? remote.base.replace(/^https?:\/\//, '') : (window.PhoneRoomMode && PhoneRoomMode.active ? PhoneRoomMode.endpoint.server : '本机')) + ' · ' + syncPort();
+    el.roomChipCode.textContent = soloMode ? '单人' : room;
+    el.ptRoom.textContent = soloMode ? '单人观看' : '房间 ' + room;
+    el.footServer.textContent = soloMode ? '仅本机 · 不连接房间'
+      : (remote ? remote.base.replace(/^https?:\/\//, '') : (window.PhoneRoomMode && PhoneRoomMode.active ? PhoneRoomMode.endpoint.server : '本机')) + ' · ' + syncPort();
     el.chatList.innerHTML = '';
-    addSys(window.PhoneRoomMode && PhoneRoomMode.active ? '正在连接异地房间 ' + room : remote ? ('已进入好友电脑上的房间 ' + room) : ('已进入房间 ' + room + '，把邀请链接发给朋友吧'));
-    setConn('wait', '连接中…');
+    addSys(soloMode ? '已进入单人观看，粘贴视频链接即可开始'
+      : window.PhoneRoomMode && PhoneRoomMode.active ? '正在连接异地房间 ' + room : remote ? ('已进入好友电脑上的房间 ' + room) : ('已进入房间 ' + room + '，把邀请链接发给朋友吧'));
+    setConn(soloMode ? 'ok' : 'wait', soloMode ? '单人观看' : '连接中…');
 
-    try {
-      await sync.join({ server: syncServer(), port: syncPort(), username: name, room,
-                        avatar: '',
-                        face: (S.selfUser && S.selfUser.logged_in && S.selfUser.face) || '' });
-    } catch (e) {
-      setConn('bad', '连接失败');
-      toast(e.message, true);
+    if (!soloMode) {
+      try {
+        await sync.join({ server: syncServer(), port: syncPort(), username: name, room,
+                          avatar: '',
+                          face: (S.selfUser && S.selfUser.logged_in && S.selfUser.face) || '' });
+      } catch (e) {
+        setConn('bad', '连接失败');
+        toast(e.message, true);
+      }
+      startHeartbeat();
     }
-    startHeartbeat();
     if (isHost) {
       window.scrollTo(0, 0);
       el.bvInput.focus({ preventScroll:true });
@@ -1106,6 +1118,7 @@
     el.screenRoom.hidden = true;
     el.screenHome.hidden = false;
     document.body.classList.remove('in-room');
+    document.body.classList.remove('solo-watch');
     el.btnBack.hidden = true;
     el.btnShare.hidden = true;
     el.btnSearch.hidden = true;
@@ -1113,6 +1126,7 @@
     el.roomChip.hidden = true;
     el.connPill.hidden = true;
     S.room = '';
+    S.solo = false;
     S.joined = false;
     S.users = [];
     S.bvid = '';
@@ -1225,10 +1239,10 @@
 
   let pendingDownload = null;
   let pendingAnime=null;
-  window.addEventListener('wt-anime-play',event=>{if(!S.joined){pendingAnime=event.detail;window.WatchInterface.openEntry('create');}else loadVideo(event.detail);});
+  window.addEventListener('wt-anime-play',event=>{if(!S.joined&&!S.solo){pendingAnime=event.detail;window.WatchInterface.openEntry('create');}else loadVideo(event.detail);});
   window.addEventListener('wt-download-play', (event) => {
     const item=event.detail;
-    if(!S.joined){pendingDownload=item;window.WatchInterface.openEntry('create');return;}
+    if(!S.joined&&!S.solo){pendingDownload=item;window.WatchInterface.openEntry('create');return;}
     loadVideo(item.target,{page:item.page,retryDownload:!!item.retry});
   });
   window.addEventListener('wt-room-entered',()=>{
@@ -1786,7 +1800,7 @@
       el.avatar.style.backgroundImage = '';
       el.avatar.textContent = '?';
       el.loginTitle.textContent = '未登录 B 站';
-      el.loginSub.textContent = S.isHost ? '登录后使用账号可用的高清画质' : '房主登录后，你这边也能看高画质';
+      el.loginSub.textContent = S.isHost || S.solo ? '登录后使用账号可用的高清画质' : '房主登录后，你这边也能看高画质';
       el.btnLogin.textContent = '登录 B 站';
     }
     renderServerBadge();

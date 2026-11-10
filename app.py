@@ -87,7 +87,7 @@ CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/do
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.8"
+APP_VERSION = "1.6.9"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"
@@ -545,6 +545,14 @@ class App(object):
         self.acache_lock = threading.Lock()
         self.acache_dir = os.path.join(DATA_DIR, "acache")
         self.hls_next = {}
+        # 当前播放清单的分段顺序，用于空闲时整集预缓存
+        self.hls_list = []
+        self.hls_index = {}
+        self.hls_at = 0
+        self.hls_touch = time.time()
+        self.hls_seq = 0
+        self.hls_worker = 0
+        self.hls_lock = threading.Lock()
         try:
             os.makedirs(self.acache_dir, exist_ok=True)
         except Exception:
@@ -870,6 +878,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._json({'ok':True,'item':self.app.downloads.start(body)})
                 if path == '/api/downloads/cancel':
                     return self._json(self.app.downloads.cancel(str(body.get('id') or '')))
+                if path == '/api/downloads/remove':
+                    return self._json(self.app.downloads.remove(str(body.get('id') or '')))
                 return self._err('下载操作不存在',404)
             if path in ('/api/discovery/update', '/api/discovery/more'):
                 self.app.discovery.request_update('more' if path.endswith('/more') else 'refresh')
@@ -1255,6 +1265,11 @@ class Handler(BaseHTTPRequestHandler):
     # ---------------- 弹幕 / 视频中继 ----------------
     def _anime_media(self, qs):
         target=anime_allowed(unpack((qs.get('u') or [''])[0]))
+        app=self.app
+        with app.hls_lock:
+            app.hls_touch=time.time()
+            pos=app.hls_index.get(target)
+            if pos is not None:app.hls_at=pos
         headers={'User-Agent':'Mozilla/5.0','Referer':anime_referer(target),'Accept-Encoding':'identity'}
         rng=self.headers.get('Range')
         if rng:headers['Range']=rng
@@ -1507,10 +1522,48 @@ class Handler(BaseHTTPRequestHandler):
 
     def _hls_index(self,segments):
         """记住分段顺序：播放清单来时预取前几个，命中分段时预取后续几个。"""
-        nxt=self.app.hls_next
-        for i,s in enumerate(segments):nxt[s]=segments[i+1:i+13]
-        if len(nxt)>4000:nxt.clear()
+        app=self.app
+        with app.hls_lock:
+            nxt=app.hls_next
+            for i,s in enumerate(segments):nxt[s]=segments[i+1:i+13]
+            if len(nxt)>4000:nxt.clear()
+            app.hls_list=list(segments)
+            app.hls_index={u:i for i,u in enumerate(segments)}
+            app.hls_at=0
+            app.hls_touch=time.time()
+            app.hls_seq+=1
+            seq=app.hls_seq
+            spawn=app.hls_worker!=seq
+            if spawn:app.hls_worker=seq
         self._acache_prefetch(segments[:6])
+        if spawn:
+            threading.Thread(target=self._hls_idle_worker,args=(seq,),name='acache-idle',daemon=True).start()
+
+    def _hls_idle_worker(self,seq):
+        """播放器空闲一段时间后，按顺序把整集剩余分段补齐，恢复播放即让路。"""
+        app=self.app
+        try:
+            while not app._stopping:
+                time.sleep(4)
+                if app.hls_seq!=seq:return
+                if time.time()-app.hls_touch<12:continue
+                with app.hls_lock:
+                    segments=list(app.hls_list)
+                    start=app.hls_at
+                count=len(segments)
+                if not count:return
+                for i in range(count):
+                    if app.hls_seq!=seq:return
+                    if time.time()-app.hls_touch<12:break
+                    url=segments[(start+1+i)%count]
+                    if self._acache_lookup(url) is not None:continue
+                    entry,created=self._acache_entry(url)
+                    if not created:continue
+                    self._acache_download(entry,url)
+                    if entry['status']=='error':break
+        finally:
+            with app.hls_lock:
+                if app.hls_worker==seq:app.hls_worker=0
 
     def _acache_gc(self):
         """缓存目录超过上限时，删最旧的分段（不动下载中的）。"""
