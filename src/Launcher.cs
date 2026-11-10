@@ -13,7 +13,7 @@ using System.Windows.Forms;
 /// </summary>
 static class Program
 {
-    const string AppVersion = "1.6.6";
+    const string AppVersion = "1.6.7";
     const string ResourceName = "app.zip";
 
     [STAThread]

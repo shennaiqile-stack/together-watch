@@ -87,7 +87,7 @@ CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/do
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.6"
+APP_VERSION = "1.6.7"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"
@@ -538,6 +538,15 @@ class App(object):
                         os.remove(os.path.join(self.vcache_dir, name))
                     except Exception:
                         pass
+        except Exception:
+            pass
+        # 站外片源 HLS 分段磁盘缓存：url md5 -> 条目
+        self.acache = {}
+        self.acache_lock = threading.Lock()
+        self.acache_dir = os.path.join(DATA_DIR, "acache")
+        self.hls_next = {}
+        try:
+            os.makedirs(self.acache_dir, exist_ok=True)
         except Exception:
             pass
         self._start_sync_server()
@@ -1247,32 +1256,287 @@ class Handler(BaseHTTPRequestHandler):
     def _anime_media(self, qs):
         target=anime_allowed(unpack((qs.get('u') or [''])[0]))
         headers={'User-Agent':'Mozilla/5.0','Referer':anime_referer(target),'Accept-Encoding':'identity'}
-        if self.headers.get('Range'):headers['Range']=self.headers['Range']
+        rng=self.headers.get('Range')
+        if rng:headers['Range']=rng
+        cached=self._acache_lookup(target)
+        if cached is not None and (not rng or cached['status']=='done'):
+            if not rng:
+                nxt=self.app.hls_next.get(target)
+                if nxt:self._acache_prefetch(nxt)
+            return self._acache_serve(cached,rng)
         with open_public(target,headers,MEDIA_TLS_CONTEXT) as response:
             first=response.read(65536)
             if first.lstrip().startswith(b'#EXTM3U'):
                 data=first+response.read(4*1024*1024)
                 if len(data)>4*1024*1024:return self._err('播放清单过大',502)
-                lines=[]
+                lines=[];segments=[]
                 for line in data.decode('utf-8-sig').splitlines():
-                    if line and not line.startswith('#'):line=media_route(urllib.parse.urljoin(target,line.strip()))
+                    if line and not line.startswith('#'):
+                        seg=urllib.parse.urljoin(target,line.strip());segments.append(seg)
+                        line=media_route(seg)
                     elif 'URI="' in line:line=re.sub(r'URI="([^"]+)"',lambda m:'URI="'+media_route(urllib.parse.urljoin(target,m[1]))+'"',line)
                     lines.append(line)
                 body=('\n'.join(lines)+'\n').encode()
+                self._hls_index(segments)
                 self.send_response(200);self.send_header('Content-Type','application/vnd.apple.mpegurl')
                 self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
                 return
-            cleaned=unwrap_segment(first) if not self.headers.get('Range') else first
-            removed=len(first)-len(cleaned)
-            self.send_response(response.status)
-            self.send_header('Content-Type',response.headers.get('Content-Type') or 'application/octet-stream')
-            for name in ('Content-Length','Content-Range','Accept-Ranges'):
-                if response.headers.get(name):self.send_header(name,str(int(response.headers[name])-removed) if name=='Content-Length' else response.headers[name])
-            self.end_headers();self.wfile.write(cleaned)
+            if rng:
+                # 渐进式 mp4：本次透传，同时后台把整个文件落盘，下次直接命中磁盘
+                entry,created=self._acache_entry(target)
+                if created:
+                    threading.Thread(target=self._acache_download,args=(entry,target),daemon=True).start()
+                self.send_response(response.status)
+                self.send_header('Content-Type',response.headers.get('Content-Type') or 'application/octet-stream')
+                for name in ('Content-Length','Content-Range','Accept-Ranges'):
+                    if response.headers.get(name):self.send_header(name,response.headers[name])
+                self.end_headers();self.wfile.write(first)
+                while True:
+                    data=response.read(65536)
+                    if not data:break
+                    self.wfile.write(data)
+                return
+            entry,created=self._acache_entry(target)
+            if not created:
+                try:response.close()
+                except Exception:pass
+                return self._acache_serve(entry)
+            nxt=self.app.hls_next.get(target)
+            if nxt:self._acache_prefetch(nxt)
+            return self._acache_tee(entry,response,first)
+
+    # ---------------- 站外片源分段磁盘缓存 ----------------
+    def _acache_lookup(self,url):
+        """只查缓存、不联网；命中返回条目，未命中返回 None。"""
+        key=hashlib.md5(url.encode('utf-8')).hexdigest()
+        app=self.app
+        with app.acache_lock:
+            entry=app.acache.get(key)
+            if entry is not None:
+                if entry['status']=='error':
+                    app.acache.pop(key,None)
+                    return None
+                return entry
+            path=os.path.join(app.acache_dir,key+'.ts')
+            okp=path[:-3]+'.ok'
+            try:
+                with open(okp,encoding='ascii') as f:
+                    head=f.read().split('\n')
+                size=int(head[0]);ctype=head[1] if len(head)>1 and head[1] else 'video/mp2t'
+            except Exception:
+                return None
+            if size<=0 or not os.path.isfile(path) or os.path.getsize(path)!=size:
+                return None
+            entry={'path':path,'have':size,'size':size,'status':'done','err':'',
+                   'ctype':ctype,'cond':threading.Condition(),'born':time.time()}
+            app.acache[key]=entry
+            return entry
+
+    def _acache_entry(self,url):
+        """拿条目；没有就创建，返回 (entry, 是否新建)。新建者负责写入缓存文件。"""
+        key=hashlib.md5(url.encode('utf-8')).hexdigest()
+        app=self.app
+        with app.acache_lock:
+            entry=app.acache.get(key)
+            if entry is not None:
+                if entry['status']=='error':
+                    app.acache.pop(key,None)
+                else:
+                    return entry,False
+            path=os.path.join(app.acache_dir,key+'.ts')
+            entry={'path':path,'have':0,'size':-1,'status':'downloading','err':'',
+                   'ctype':'video/mp2t','cond':threading.Condition(),'born':time.time()}
+            app.acache[key]=entry
+        self._acache_gc()
+        return entry,True
+
+    def _acache_tee(self,entry,response,first):
+        """首个请求者：一边把分段写盘缓存，一边直接流给客户端。"""
+        cleaned=unwrap_segment(first)
+        removed=len(first)-len(cleaned)
+        entry['ctype']=response.headers.get('Content-Type') or entry['ctype']
+        self.send_response(response.status)
+        self.send_header('Content-Type',entry['ctype'])
+        for name in ('Content-Length','Accept-Ranges'):
+            if response.headers.get(name):self.send_header(name,str(int(response.headers[name])-removed) if name=='Content-Length' else response.headers[name])
+        self.send_header('Access-Control-Allow-Origin','*')
+        self.end_headers()
+        try:
+            f=open(entry['path'],'wb',buffering=0)
+        except OSError:
+            f=None
+        try:
+            data=cleaned
             while True:
+                if data:
+                    if f is not None:
+                        try:f.write(data)
+                        except OSError:f=None
+                    self.wfile.write(data)
+                    with entry['cond']:
+                        entry['have']+=len(data);entry['cond'].notify_all()
                 data=response.read(65536)
                 if not data:break
-                self.wfile.write(data)
+        except (BrokenPipeError,ConnectionResetError):
+            pass
+        except Exception as e:
+            entry['err']=str(e)
+        finally:
+            if f is not None:
+                try:f.close()
+                except Exception:pass
+            try:response.close()
+            except Exception:pass
+            with entry['cond']:
+                if entry['err']:
+                    entry['status']='error'
+                else:
+                    entry['size']=entry['have'];entry['status']='done'
+                    try:
+                        with open(entry['path'][:-3]+'.ok','w',encoding='ascii') as mk:
+                            mk.write('%d\n%s'%(entry['size'],entry['ctype']))
+                    except Exception:pass
+                entry['cond'].notify_all()
+        if entry['err']:self.app.log('[acache] 缓存失败：%s'%entry['err'])
+
+    def _acache_serve(self,entry,rng=None):
+        """从磁盘缓存发内容；支持 Range；还在下载的部分等下载追上。"""
+        size=entry['size']
+        start,end=0,-1
+        if rng and size>0:
+            m=re.fullmatch(r'bytes=(\d*)-(\d*)',rng)
+            if m and any(m.groups()):
+                first,last=m.groups()
+                if first:
+                    start=int(first);end=min(int(last),size-1) if last else size-1
+                else:
+                    start=max(0,size-int(last));end=size-1
+                if start>end or start>=size:
+                    self.send_response(416)
+                    self.send_header('Content-Range','bytes */%d'%size)
+                    self.send_header('Content-Length','0')
+                    self.send_header('Access-Control-Allow-Origin','*')
+                    self.end_headers()
+                    return
+        if start or end>=0:
+            self.send_response(206)
+            self.send_header('Content-Range','bytes %d-%d/%d'%(start,end,size))
+        else:
+            self.send_response(200)
+        self.send_header('Content-Type',entry['ctype'] or 'video/mp2t')
+        if size>0:self.send_header('Content-Length',str((end-start+1) if end>=0 else size))
+        self.send_header('Accept-Ranges','bytes')
+        self.send_header('Access-Control-Allow-Origin','*')
+        self.end_headers()
+        offset=start
+        limit=end+1 if end>=0 else None
+        try:
+            f=open(entry['path'],'rb',buffering=0)
+        except OSError:
+            # 下载线程还没建文件：等它产出第一块数据再打开
+            deadline=time.time()+30
+            while True:
+                with entry['cond']:
+                    if entry['status']!='downloading' or entry['have']>0:
+                        break
+                    entry['cond'].wait(0.5)
+                if time.time()>deadline:
+                    break
+            try:
+                f=open(entry['path'],'rb',buffering=0)
+            except OSError:
+                return
+        try:
+            while True:
+                with entry['cond']:
+                    while entry['status']=='downloading' and offset>=entry['have']:
+                        entry['cond'].wait(0.5)
+                    if entry['status']!='downloading' and offset>=entry['have']:
+                        break
+                    avail=entry['have']
+                if limit is not None:avail=min(avail,limit)
+                if avail<=offset:
+                    if limit is not None and offset>=limit:break
+                    continue
+                f.seek(offset)
+                data=f.read(avail-offset)
+                if data:
+                    self.wfile.write(data);offset+=len(data)
+                if limit is not None and offset>=limit:
+                    break
+        except (BrokenPipeError,ConnectionResetError):
+            pass
+        finally:
+            f.close()
+
+    def _acache_prefetch(self,urls):
+        for u in urls:
+            try:
+                entry,created=self._acache_entry(u)
+                if created:
+                    threading.Thread(target=self._acache_download,args=(entry,u),daemon=True).start()
+            except Exception:
+                pass
+
+    def _acache_download(self,entry,url):
+        """后台预取分段：只写缓存文件，不流向任何客户端。"""
+        try:
+            headers={'User-Agent':'Mozilla/5.0','Referer':anime_referer(url),'Accept-Encoding':'identity'}
+            with open_public(url,headers,MEDIA_TLS_CONTEXT) as response:
+                entry['ctype']=response.headers.get('Content-Type') or entry['ctype']
+                with open(entry['path'],'wb',buffering=0) as f:
+                    data=unwrap_segment(response.read(65536))
+                    while True:
+                        if data:
+                            f.write(data)
+                            with entry['cond']:
+                                entry['have']+=len(data);entry['cond'].notify_all()
+                        data=response.read(65536)
+                        if not data:break
+            with entry['cond']:
+                entry['size']=entry['have'];entry['status']='done';entry['cond'].notify_all()
+            try:
+                with open(entry['path'][:-3]+'.ok','w',encoding='ascii') as mk:
+                    mk.write('%d\n%s'%(entry['size'],entry['ctype']))
+            except Exception:pass
+            self.app.log('[acache] 已缓存 %.1fMB'%(entry['have']/1048576.0))
+        except Exception as e:
+            with entry['cond']:
+                entry['status']='error';entry['err']=str(e);entry['cond'].notify_all()
+            self.app.log('[acache] 缓存失败：%s'%e)
+
+    def _hls_index(self,segments):
+        """记住分段顺序：播放清单来时预取前几个，命中分段时预取后续几个。"""
+        nxt=self.app.hls_next
+        for i,s in enumerate(segments):nxt[s]=segments[i+1:i+4]
+        if len(nxt)>4000:nxt.clear()
+        self._acache_prefetch(segments[:3])
+
+    def _acache_gc(self):
+        """缓存目录超过上限时，删最旧的分段（不动下载中的）。"""
+        app=self.app
+        max_bytes=3*1024*1024*1024
+        try:
+            files=[]
+            total=0
+            for name in os.listdir(app.acache_dir):
+                if not name.endswith('.ts'):continue
+                p=os.path.join(app.acache_dir,name)
+                st=os.stat(p);files.append((st.st_mtime,st.st_size,p));total+=st.st_size
+            files.sort()
+            for mtime,size,p in files:
+                if total<=max_bytes:break
+                key=os.path.basename(p)[:-3]
+                entry=app.acache.get(key)
+                if entry and entry['status']=='downloading':continue
+                try:
+                    os.remove(p)
+                    try:os.remove(p[:-3]+'.ok')
+                    except Exception:pass
+                    total-=size;app.acache.pop(key,None)
+                    app.log('[acache] 清理旧缓存 %.1fMB'%(size/1048576.0))
+                except Exception:pass
+        except Exception:pass
 
     def _relay_headers(self):
         headers = {
