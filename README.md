@@ -2,7 +2,7 @@
 
 Windows 与 Android 同步观影客户端。视频由各设备分别加载，同步服务器负责房间、聊天与播放状态。
 
-当前版本：Windows 1.6.17 / Android 5.5。
+当前版本：Windows 1.6.18 / Android 5.5。
 
 ## 功能
 

@@ -87,7 +87,7 @@ CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/do
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.17"
+APP_VERSION = "1.6.18"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"
@@ -853,7 +853,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/api/anime/search':
                 return self._json({'ok':True,'items':self.app.anime.search((qs.get('provider') or ['giri'])[0],(qs.get('kw') or [''])[0])})
             if path == '/api/anime/details':
-                return self._json({'ok':True,**self.app.anime.details((qs.get('provider') or ['giri'])[0],(qs.get('id') or [''])[0])})
+                try:
+                    return self._json({'ok':True,**self.app.anime.details((qs.get('provider') or ['giri'])[0],(qs.get('id') or [''])[0])})
+                except ValueError as e:
+                    return self._err(str(e),400)
             if path == '/anime-media':
                 return self._anime_media(qs)
             if path == "/api/home-art":
@@ -898,7 +901,7 @@ class Handler(BaseHTTPRequestHandler):
             if path.startswith("/api/"):
                 return self._err("接口不存在", 404)
             return self._static(path)
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             return
         except Exception as e:
             self.app.log("[http] %s %s\n%s" % (path, e, traceback.format_exc()))
@@ -1077,7 +1080,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         try:
             self.wfile.write(data)
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
 
     def _api_cover(self, qs):
@@ -1130,6 +1133,8 @@ class Handler(BaseHTTPRequestHandler):
             items = self.app.bili.search_anime(kw)
         except BiliError as e:
             return self._err(str(e), 502)
+        except Exception:
+            return self._err("搜索失败，请稍后重试", 502)
         return self._json({"ok": True, "keyword": kw, "items": items})
 
     def _api_video(self, qs):
@@ -1311,12 +1316,24 @@ class Handler(BaseHTTPRequestHandler):
         cid = (qs.get("cid") or [""])[0]
         if not cid:
             return self._err("缺少 cid")
-        items = self.app.bili.danmaku(cid)
+        if not cid.isdigit():
+            return self._err("cid 无效", 400)
+        try:
+            items = self.app.bili.danmaku(cid)
+        except Exception:
+            return self._err("弹幕获取失败，请稍后重试", 502)
         return self._json({"ok": True, "count": len(items), "items": items})
 
     # ---------------- 弹幕 / 视频中继 ----------------
     def _anime_media(self, qs):
-        target=anime_allowed(unpack((qs.get('u') or [''])[0]))
+        try:
+            value=unpack((qs.get('u') or [''])[0])
+        except ValueError:
+            return self._err('播放地址无效',400)
+        try:
+            target=anime_allowed(value)
+        except ValueError as e:
+            return self._err(str(e),400)
         app=self.app
         with app.hls_lock:
             app.hls_touch=time.time()
@@ -1447,6 +1464,7 @@ class Handler(BaseHTTPRequestHandler):
             f=open(entry['path'],'wb',buffering=0)
         except OSError:
             f=None
+        client_gone=False
         try:
             data=cleaned
             while True:
@@ -1454,13 +1472,16 @@ class Handler(BaseHTTPRequestHandler):
                     if f is not None:
                         try:f.write(data)
                         except OSError:f=None
-                    self.wfile.write(data)
+                    if not client_gone:
+                        # 客户端断开不算失败：继续把整段下载进缓存，下次 seek/重试直接命中完整分段
+                        try:
+                            self.wfile.write(data)
+                        except OSError:
+                            client_gone=True
                     with entry['cond']:
                         entry['have']+=len(data);entry['cond'].notify_all()
                 data=response.read(65536)
                 if not data:break
-        except (BrokenPipeError,ConnectionResetError):
-            pass
         except Exception as e:
             entry['err']=str(e)
         finally:
@@ -1546,7 +1567,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.write(data);offset+=len(data)
                 if limit is not None and offset>=limit:
                     break
-        except (BrokenPipeError,ConnectionResetError):
+        except (BrokenPipeError,ConnectionResetError,ConnectionAbortedError):
             pass
         finally:
             f.close()
