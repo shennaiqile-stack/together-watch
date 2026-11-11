@@ -1323,16 +1323,24 @@
 
   function parseFileInfo(name) {
     if(/^anime:(giri|mxdm|ezdmw|baimao|sefun|aki):[A-Za-z0-9_-]{1,40}:\d{1,6}:\d{1,10}$/.test(name||''))return {target:name,page:1};
-    if (!name || name.indexOf('bilibili:') !== 0) return null;
-    const parts = name.slice('bilibili:'.length).split(':');
-    const target = (parts[0] || '').trim();
-    if (!target) return null;
-    let page = 1;
-    for (let i = 1; i < parts.length; i++) {
-      const m = (parts[i] || '').match(/^p(\d+)$/i);
-      if (m) page = Number(m[1]) || 1;
+    if (name && name.indexOf('bilibili:') === 0) {
+      const parts = name.slice('bilibili:'.length).split(':');
+      const target = (parts[0] || '').trim();
+      if (!target) return null;
+      let page = 1;
+      for (let i = 1; i < parts.length; i++) {
+        const m = (parts[i] || '').match(/^p(\d+)$/i);
+        if (m) page = Number(m[1]) || 1;
+      }
+      return { target: target, page: page };
     }
-    return { target: target, page: page };
+    /* 手机端可能只发 BV 号或视频页地址，兜底识别一次 */
+    const loose = parseTarget(name);
+    if (!loose) return null;
+    let page = 1;
+    const m = String(name).match(/[?&]p=(\d{1,4})/i) || String(name).match(/(?:^|[:\s])p(\d{1,4})$/i);
+    if (m) page = Number(m[1]) || 1;
+    return { target: loose.target, page: page };
   }
 
   function maybeFollowFile(file) {
