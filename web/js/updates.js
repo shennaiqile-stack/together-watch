@@ -3,7 +3,7 @@
   'use strict';
   const repository = 'https://github.com/shennaiqile-stack/together-watch';
   const endpoint = 'https://api.github.com/repos/shennaiqile-stack/together-watch/releases/latest';
-  const versions = {windows:'1.6.18', android:'5.7'};
+  const versions = {windows:'1.6.19', android:'5.7'};
   function newer(candidate, current) {
     if (!/^\d+(?:\.\d+){1,3}$/.test(candidate) || !/^\d+(?:\.\d+){1,3}$/.test(current)) return false;
     const a=candidate.split('.').map(Number), b=current.split('.').map(Number);
