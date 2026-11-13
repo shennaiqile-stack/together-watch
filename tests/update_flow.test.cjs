@@ -2,6 +2,10 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const vm=require('node:vm'),fs=require('node:fs');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../web/js/updates.js'),'utf8');
+const currentAndroid=require('../web/js/updates.js').versions.android;
+const nextAndroid=currentAndroid.split('.').map(Number);
+nextAndroid[nextAndroid.length-1]++;
+const nextAndroidVersion=nextAndroid.join('.');
 async function boot(platform,result){
   const nodes=new Map();let startup;
   const document={getElementById(id){if(!nodes.has(id))nodes.set(id,{textContent:'',disabled:false,open:false,showModal(){this.open=true;}});return nodes.get(id);},addEventListener(event,fn){startup=fn;}};
@@ -11,7 +15,7 @@ async function boot(platform,result){
   startup();await scheduled();
   return {nodes,window,call};
 }
-const release={body:'<script>unsafe()</script>',assets:[{name:'TogetherWatch-Android-v5.6.apk',state:'uploaded',size:123,browser_download_url:'https://github.com/shennaiqile-stack/together-watch/releases/download/release-2/TogetherWatch-Android-v5.6.apk'}]};
+const release={body:'<script>unsafe()</script>',assets:[{name:`TogetherWatch-Android-v${nextAndroidVersion}.apk`,state:'uploaded',size:123,browser_download_url:`https://github.com/shennaiqile-stack/together-watch/releases/download/release-2/TogetherWatch-Android-v${nextAndroidVersion}.apk`}]};
 test('every Android launch checks and offers matching newer package safely',async()=>{
   const a=await boot('android',{ok:true,json:async()=>release});
   assert(a.nodes.get('dlg-app-update').open);
@@ -29,7 +33,7 @@ test('offline startup stays usable and manual retry is available',async()=>{
   assert(!a.nodes.get('dlg-app-update').open);
 });
 test('equal installed version does not prompt',async()=>{
-  const r=JSON.parse(JSON.stringify(release));r.assets[0].name='TogetherWatch-Android-v5.5.apk';
+  const r=JSON.parse(JSON.stringify(release));r.assets[0].name=`TogetherWatch-Android-v${currentAndroid}.apk`;
   const a=await boot('android',{ok:true,json:async()=>r});
   assert.match(a.nodes.get('app-update-status').textContent,/已是最新/);assert(!a.nodes.get('dlg-app-update').open);
 });

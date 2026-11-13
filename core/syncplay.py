@@ -16,6 +16,7 @@ import socket
 import ssl
 import threading
 import time
+from pathlib import Path
 
 VERSION = "1.7.4"
 CLIENT_VERSION = "1.2.255"   # 让老服务器也能工作
@@ -259,8 +260,13 @@ class SyncplayClient(object):
         host = self.host
         try:
             ctx = ssl.create_default_context()
+            pinned = Path(__file__).resolve().parent.parent / 'certs' / 'sync-server-ca.pem'
+            if host == '154.64.252.247' and pinned.is_file():
+                ctx.load_verify_locations(cafile=str(pinned))
             return ctx.wrap_socket(sock, server_hostname=host)
         except ssl.SSLCertVerificationError:
+            if host == '154.64.252.247' and pinned.is_file():
+                raise
             # 自签证书的私服：降级重连
             try:
                 sock.close()
@@ -516,7 +522,11 @@ class SyncplayServer(object):
                 return
             msg = _loads(first)
             if msg and "TLS" in msg:
-                line.send({"TLS": {"startTLS": "false"}})
+                tls_context = getattr(self, 'tls_context', None)
+                line.send({"TLS": {"startTLS": "true" if tls_context else "false"}})
+                if tls_context:
+                    sock = tls_context.wrap_socket(sock, server_side=True)
+                    line = LineSocket(sock)
                 raw = line.recv_line(timeout=20)
                 msg = _loads(raw) if raw is not None else None
             if not msg or "Hello" not in msg:

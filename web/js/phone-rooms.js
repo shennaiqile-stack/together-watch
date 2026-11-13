@@ -1,7 +1,7 @@
 /* Native phones can join the same public Syncplay room from different networks. */
 (() => {
   'use strict';
-  if (window.PhoneRooms) window.WT_APP_VERSION = '5.7';
+  if (window.PhoneRooms) window.WT_APP_VERSION = '5.8';
 
   function server(value) {
     const match = String(value || '').trim().match(/^([a-zA-Z0-9.-]{1,253})(?::(\d{1,5}))?$/);
@@ -61,30 +61,32 @@
           if (this.nativeResolve) this.nativeResolve();
           this.nativeResolve = this.nativeReject = null;
         }
-        if (type === 'error' && this.nativeReject) {
-          clearTimeout(this.joinTimer);
-          this.nativeReject(new Error(data.message || '房间连接失败'));
-          this.nativeResolve = this.nativeReject = null;
-        }
-        if (type === 'disconnected') {
-          clearTimeout(this.joinTimer);
-          this.open = false; this.ws = null;
-          if (this.nativeReject) this.nativeReject(new Error('房间连接已断开'));
-          this.nativeResolve = this.nativeReject = null;
-          if (!this.closedByUser && this.opts) {
-            const options = this.opts;
-            const serial = this.nativeSerial;
-            const delay = Math.min(10000, 1200 * (this.retry + 1));
-            this.retry++;
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = setTimeout(() => {
-              if (this.native && serial === this.nativeSerial && !this.closedByUser && this.opts)
-                this.join(options).catch(() => {});
-            }, delay);
-          }
+        if (type === 'error' || type === 'disconnected') {
+          this.failNative(type,data || {});return;
         }
         this.emit(type,data);
       };
+    }
+    failNative(type,data) {
+      clearTimeout(this.joinTimer);
+      this.open=false;this.ws=null;
+      // Invalidate callbacks before closing: the bridge may deliver a late Hello.
+      const serial=++this.nativeSerial;
+      const reject=this.nativeReject;
+      this.nativeResolve=this.nativeReject=null;
+      const reason=data.message || data.reason || '房间连接已断开';
+      if(reject)reject(new Error(reason));
+      try{PhoneRooms.close();}catch(_){}
+      clearTimeout(this.reconnectTimer);
+      if(!this.closedByUser && this.opts){
+        const options=this.opts;
+        const delay=Math.min(10000,1200*(++this.retry));
+        this.reconnectTimer=setTimeout(()=>{
+          if(this.native && serial===this.nativeSerial && !this.closedByUser && this.opts)
+            this.join(options).catch(()=>{});
+        },delay);
+      }
+      this.emit(type,{...data,message:reason,reason});
     }
     async join(options) {
       if (!PhoneRoomMode.active) {
@@ -104,11 +106,10 @@
         this.joinTimer = setTimeout(() => {
           if (serial !== this.nativeSerial || this.open) return;
           const error = new Error('连接同步服务器超时，请检查网络或更换服务器');
-          this.leave();
-          this.emit('error',{message:error.message});
-          reject(error);
+          this.failNative('error',{message:error.message});
         },30000);
-        PhoneRooms.connect(JSON.stringify({...options,...PhoneRoomMode.endpoint,serial}));
+        try{PhoneRooms.connect(JSON.stringify({...options,...PhoneRoomMode.endpoint,serial}));}
+        catch(error){this.failNative('error',{message:error.message || '无法启动房间连接'});}
       });
     }
     send(command) {
@@ -122,13 +123,13 @@
       clearTimeout(this.joinTimer);
       if (this.native) {
         this.nativeSerial++;
-        PhoneRooms.close();
         this.closedByUser = true;
         this.opts = null;
         this.open = false;
         this.ws = null;
         if (this.nativeReject) this.nativeReject(new Error('已退出房间'));
         this.nativeResolve = this.nativeReject = null;
+        try{PhoneRooms.close();}catch(_){}
       } else super.leave();
     }
   }

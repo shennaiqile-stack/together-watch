@@ -5,7 +5,7 @@
   function exit(){
     const app=document.querySelector('.player-shell.app-fullscreen');
     if(app){app.classList.remove('app-fullscreen');document.body.classList.remove('native-fullscreen');nativeState(false);}
-    else if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+    else if(document.fullscreenElement)return document.exitFullscreen().catch(()=>{});
   }
   window.WatchFullscreen={element,exit,toggle(shell){
     if(element()){exit();return;}

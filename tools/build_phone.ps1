@@ -3,8 +3,8 @@
 param(
     [string]$Toolchain = "$env:LOCALAPPDATA\wtbuild\tools",
     [string]$AndroidJar = "C:\Users\19075\Documents\deepseek-harness\default-workspace\watch-together-pc\tools\android\sdk\platforms\android-36\android.jar",
-    [string]$Version = "5.7",
-    [int]$VersionCode = 18,
+    [string]$Version = "5.8",
+    [int]$VersionCode = 19,
     [string]$BaseApp = "input\base.apk",
     [switch]$Shell
 )
@@ -33,7 +33,7 @@ Write-Output '== aapt2 link =='
 & (Join-Path $bt 'aapt2.exe') link -o (Join-Path $out 'resources.apk') -I $AndroidJar `
     --manifest (Join-Path $app 'AndroidManifest.xml') `
     (Join-Path $out 'compiled.zip') `
-    --min-sdk-version 24 --target-sdk-version 36
+    --min-sdk-version 24 --target-sdk-version 36 --version-code $VersionCode --version-name $Version
 if ($LASTEXITCODE) { throw 'aapt2 link 失败' }
 
 if ($Shell) {
@@ -46,7 +46,7 @@ if ($Shell) {
 
     Write-Output '== javac =='
     $src = Join-Path $app 'src\com\watchtogether\phone\MainActivity.java'
-    & (Join-Path $jdk 'bin\javac.exe') -encoding UTF-8 -classpath $AndroidJar -d (Join-Path $out 'classes') $src
+    & (Join-Path $jdk 'bin\javac.exe') -encoding UTF-8 -classpath $AndroidJar -d (Join-Path $out 'classes') $src (Join-Path $root 'android\next-src\com\watchtogether\phone\NextActivity.java')
     if ($LASTEXITCODE) { throw 'javac 失败' }
 
     Write-Output '== d8 =='
@@ -62,7 +62,16 @@ if ($Shell) {
     Write-Output '== 合入原生基线（保留本机服务与开房能力）=='
     $base = Join-Path $root $BaseApp
     if (-not (Test-Path $base)) { throw "缺少原生基线 APK: $base" }
-    python (Join-Path $root 'tools\repack_phone_interop.py') $base (Join-Path $out 'resources.apk') (Join-Path $out 'packed.apk')
+    New-Item -ItemType Directory -Force -Path (Join-Path $out 'classes'),(Join-Path $out 'dex') | Out-Null
+    & (Join-Path $jdk 'bin\javac.exe') -encoding UTF-8 -source 8 -target 8 -classpath $AndroidJar -d (Join-Path $out 'classes') `
+        (Join-Path $root 'android\compile-stubs\com\watchtogether\phone\MainActivity.java') `
+        (Join-Path $root 'android\next-src\com\watchtogether\phone\NextActivity.java')
+    if ($LASTEXITCODE) { throw 'NextActivity compile failed' }
+    # The compile-only MainActivity declaration must never replace the native baseline.
+    $wrapperClasses = Get-ChildItem (Join-Path $out 'classes\com\watchtogether\phone') -Filter 'NextActivity*.class' | ForEach-Object { $_.FullName }
+    & (Join-Path $bt 'd8.bat') --lib $AndroidJar --classpath (Join-Path $out 'classes') --min-api 24 --output (Join-Path $out 'dex') @wrapperClasses
+    if ($LASTEXITCODE) { throw 'NextActivity dex failed' }
+    python (Join-Path $root 'tools\repack_phone_interop.py') $base (Join-Path $out 'resources.apk') (Join-Path $out 'packed.apk') (Join-Path $out 'dex\classes.dex')
     if ($LASTEXITCODE) { throw '合入原生基线失败' }
 }
 

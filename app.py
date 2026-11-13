@@ -87,7 +87,7 @@ CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/do
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.19"
+APP_VERSION = "1.6.20"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"
@@ -124,15 +124,8 @@ DEFAULT_CONFIG = {
     "public_addr": "",
 }
 
-# 内置外网访问服务器：默认走这台机器，账号密码随程序分发
-BUILTIN_RELAY = {
-    "host": "154.64.252.247",
-    "port": 22,
-    "user": "Administrator",
-    "pass": "WS72zuScloySHpTm",
-    "hostkey": "SHA256:7DhRs07ihFXPQAFpHD6MKM2G7OQGG2gnpAE5XT1DKQo",
-    "remote": 0,
-}
+# 网页中继的服务器凭据由设备设置提供，不随公开客户端分发。
+BUILTIN_RELAY = {'host': '', 'port': 22, 'user': '', 'pass': '', 'hostkey': '', 'remote': 0}
 
 ALLOWED_HOST_SUFFIX = (
     "bilivideo.com", "bilivideo.cn", "bilivideo.cc", "hdslb.com",

@@ -579,6 +579,10 @@
       el.srMenu.hidden = !el.srMenu.hidden;
     };
     el.btnBack.onclick = leaveRoom;
+    document.getElementById('btn-confirm-leave').onclick = () => {
+      document.getElementById('dlg-leave-room').close();
+      leaveRoom(true);
+    };
     el.btnShare.onclick = openShare;
     el.btnTunnel.onclick = toggleExternal;
     el.btnTunnelCopy.onclick = async () => {
@@ -1157,8 +1161,12 @@
     window.dispatchEvent(new CustomEvent('wt-room-entered', {detail:{isHost:!!isHost}}));
   }
 
-  function leaveRoom() {
-    if (player.ready && !confirm('确定要退出房间吗？')) return;
+  function leaveRoom(confirmed) {
+    if (player.ready && confirmed !== true) {
+      const dialog=document.getElementById('dlg-leave-room');
+      if(!dialog.open)dialog.showModal();
+      return;
+    }
     presence.stop();
     window.RoomJoinNotice.hide();
     if(window.ChatAlerts)ChatAlerts.reset();

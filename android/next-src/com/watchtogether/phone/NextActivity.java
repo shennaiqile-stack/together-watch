@@ -52,9 +52,10 @@ public class NextActivity extends MainActivity {
         WebView web=player(getWindow().getDecorView());
         if(web==null){finish();return;}
         waitingBack=true;
-        web.evaluateJavascript("Boolean(window.WatchBack && window.WatchBack.handle())", result -> {
+        // During startup a missing handler must not be treated as the home page.
+        web.evaluateJavascript("window.WatchBack ? Boolean(window.WatchBack.handle()) : null", result -> {
             waitingBack=false;
-            if(!"true".equals(result)) finish();
+            if("false".equals(result)) finish();
         });
     }
 

@@ -8,7 +8,14 @@
     if (name === 'loadeddata' && el.readyState >= 2) return resolve();
     let done = false;
     const ok = () => { if (!done) { done = true; cleanup(); resolve(); } };
-    const bad = () => { if (!done) { done = true; cleanup(); reject(new Error('媒体加载失败')); } };
+    const bad = () => {
+      if (done) return;
+      done = true; cleanup();
+      const code=el.error && el.error.code;
+      const reason=({1:'加载被中止',2:'网络请求失败',3:'解码失败',4:'格式或播放地址不受支持'})[code] || '媒体加载失败';
+      const track=el.tagName==='AUDIO'?'音轨':'视频';
+      reject(new Error(track+'：'+reason+(code?'（错误 '+code+'）':'')));
+    };
     const cancel = () => { if (!done) { done = true; cleanup(); const e = new Error('加载已取消'); e.name = 'AbortError'; reject(e); } };
     const timer = setTimeout(() => {
       if (!done) { done = true; cleanup(); reject(new Error('媒体加载超时')); }
@@ -22,6 +29,7 @@
     el.addEventListener(name, ok, { once: true });
     el.addEventListener('error', bad, { once: true });
     if (job) job.add(cancel);
+    if (el.error) bad();
   });
 
   class Player {
@@ -113,7 +121,7 @@
       v.addEventListener('playing', () => { if (this.ready) this._phase('playing'); });
       v.addEventListener('ended', () => this.emit('ended'));
       v.addEventListener('error', () => {
-        if (!this._loading && v.error) {
+        if (this.ready && !this._loading && v.error) {
           this.audio.pause();
           this._phase('error');
           this.emit('error', v.error);
@@ -207,8 +215,7 @@
       try { a.pause(); } catch (e) {}
       try { v.removeAttribute('src'); v.load(); } catch (e) {}
       try { a.removeAttribute('src'); a.load(); } catch (e) {}
-      this.shell.classList.add('idle', 'paused');
-      this.shell.classList.remove('no-video');
+      this.shell.classList.add('idle', 'paused', 'no-video');
 
       if(source.mode==='hls' && window.Hls && Hls.isSupported()) {
         const hls=this._hls=new Hls({maxBufferLength:40,maxMaxBufferLength:80,enableWorker:true});
@@ -265,7 +272,7 @@
       a.playbackRate = this.rate;
       this.ready = true;
       this._phase('paused');
-      this.shell.classList.remove('idle');
+      this.shell.classList.remove('idle', 'no-video');
       this.shell.classList.toggle('paused', v.paused);
       this.emit('ready', { duration: v.duration, mode: this.mode });
       this._silence(600);
