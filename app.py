@@ -81,13 +81,16 @@ sys.path.insert(0, ROOT)
 
 from core.bili import Bilibili, BiliError, parse_id, parse_bangumi  # noqa: E402
 from core.syncplay import SyncplayClient, SyncplayServer       # noqa: E402
+from core.invites import enqueue as enqueue_invite, take as take_invite, normalize as normalize_invite
+from core.relay_config import load_builtin_relay
+from core.app_updates import AppUpdates
 
 APP_NAME = "together-watch"
 CLOUDFLARED_URL = ("https://github.com/cloudflare/cloudflared/releases/latest/download/"
                    "cloudflared-windows-amd64.exe")
 CLOUDFLARED_MIRROR = ("https://ghproxy.net/https://github.com/cloudflare/cloudflared/"
                       "releases/latest/download/cloudflared-windows-amd64.exe")
-APP_VERSION = "1.6.20"
+APP_VERSION = "1.6.23"
 _COVER_CACHE = {}                            # 封面中转缓存 {url: (bytes, content-type)}
 MOCK = os.environ.get("WT_MOCK") == "1"      # 仅用于本机调试，正常使用不会开启
 MOCK_BV = "BV1mockDEMO0"
@@ -115,7 +118,7 @@ DEFAULT_CONFIG = {
     "open_mode": "app",
     "relay_host": "",
     "relay_port": 22,
-    "relay_user": "Administrator",
+    "relay_user": "",
     "relay_pass": "",
     # 0 表示由程序自动挑一个空闲的远端端口
     "relay_remote_port": 0,
@@ -124,8 +127,8 @@ DEFAULT_CONFIG = {
     "public_addr": "",
 }
 
-# 网页中继的服务器凭据由设备设置提供，不随公开客户端分发。
-BUILTIN_RELAY = {'host': '', 'port': 22, 'user': '', 'pass': '', 'hostkey': '', 'remote': 0}
+# 内置受限中转认证由打包配置提供，管理员凭据不进入客户端。
+BUILTIN_RELAY = load_builtin_relay(getattr(sys, '_MEIPASS', APP_ROOT))
 
 ALLOWED_HOST_SUFFIX = (
     "bilivideo.com", "bilivideo.cn", "bilivideo.cc", "hdslb.com",
@@ -164,6 +167,8 @@ def load_config():
     # 老版本把远端端口固定成 8770，多人共用内置服务器时会互相挤掉；改为自动分配
     if cfg.get("relay_remote_port") == 8770 and not cfg.get("relay_host"):
         cfg["relay_remote_port"] = 0
+    if not cfg.get('relay_host') and not cfg.get('relay_pass') and cfg.get('relay_user') in ('Administrator','root'):
+        cfg['relay_user']=''
     return cfg
 
 
@@ -502,6 +507,7 @@ class Session(object):
 class App(object):
     def __init__(self, cfg):
         self.cfg = cfg
+        self.updates = AppUpdates(DATA_DIR,APP_VERSION)
         self.bili = MockBilibili() if MOCK else Bilibili(DATA_DIR)
         if MOCK:
             self.log("[mock] 演示模式已开启")
@@ -823,6 +829,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._ws()
             if path == "/api/state":
                 return self._api_state()
+            if path == '/api/app-update/status':
+                if not self._device_local():return self._err('更新仅允许本机操作',403)
+                return self._json(self.app.updates.snapshot())
             if path=='/api/source-http':
                 if not self._device_local():return self._err('片源由自己的客户端加载',403)
                 return self._json(source_http((qs.get('u') or [''])[0],MEDIA_TLS_CONTEXT,(qs.get('probe') or [''])[0]=='1'))
@@ -879,6 +888,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"ok": True, "app": APP_NAME, "version": APP_VERSION, "instance": self.app.instance_id,
                                    "installation": INSTALLATION_SCOPE,
                                    "ui_ready": ui_ready(),
+                                   "invite_listener": time.time()-getattr(self.app,'last_invite_poll',0)<4,
                                    "uptime": int(time.time() - self.app.started_at)})
             if path.startswith("/relay"):
                 return self._relay(qs)
@@ -912,6 +922,19 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         try:
+            if path in ('/api/app-update/start','/api/app-update/install'):
+                if not self._device_local():return self._err('更新仅允许本机操作',403)
+                body=self._body()
+                if path.endswith('/start'):return self._json(self.app.updates.start(body))
+                result=self.app.updates.install()
+                self._json(result)
+                threading.Thread(target=self._shutdown,daemon=True).start()
+                return
+            if path == '/api/invites/next':
+                if not self._device_local():return self._err('邀请仅允许本机访问',403)
+                self._body()
+                self.app.last_invite_poll=time.time()
+                return self._json({'ok':True,'url':take_invite(DATA_DIR)})
             if (path.startswith('/api/login/') or path=='/api/logout') and not self._device_local():
                 return self._err('请在自己的客户端登录',403)
             if path.startswith('/api/downloads/'):
@@ -2532,13 +2555,16 @@ class Relay(object):
 
     def _pick_remote(self):
         """自动选一个远端端口：随机取，并避开本次已经试过的值。"""
+        cfg=self.app.cfg
+        builtin=(not cfg.get('relay_host') or cfg.get('relay_host')==BUILTIN_RELAY['host']) and (not cfg.get('relay_user') or cfg.get('relay_user')==BUILTIN_RELAY['user'])
+        low,high=(BUILTIN_RELAY['port_min'],BUILTIN_RELAY['port_max']+1) if builtin else (20000,30000)
         for _ in range(40):
-            candidate = random.randrange(20000, 30000)
+            candidate = random.randrange(low, high)
             if candidate not in self._tried:
                 self._tried.append(candidate)
                 del self._tried[:-20]
                 return candidate
-        return random.randrange(20000, 30000)
+        return random.randrange(low, high)
 
     def _connect_once(self, host, port, user, pwd, remote, local, generation, auto=False):
         plink = self._plink()
@@ -2755,6 +2781,30 @@ def open_url(url):
         return False
 
 
+def activate_room_window():
+    if os.name != 'nt':return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+        user32=ctypes.WinDLL('user32',use_last_error=True)
+        user32.GetWindowTextW.argtypes=[wintypes.HWND,wintypes.LPWSTR,ctypes.c_int]
+        user32.IsWindowVisible.argtypes=[wintypes.HWND]
+        user32.ShowWindow.argtypes=[wintypes.HWND,ctypes.c_int]
+        user32.SetForegroundWindow.argtypes=[wintypes.HWND]
+        found=[]
+        callback_type=ctypes.WINFUNCTYPE(wintypes.BOOL,wintypes.HWND,wintypes.LPARAM)
+        def visit(hwnd,unused):
+            title=ctypes.create_unicode_buffer(512)
+            user32.GetWindowTextW(hwnd,title,512)
+            if user32.IsWindowVisible(hwnd) and title.value.startswith('一起看'):
+                found.append(hwnd);user32.ShowWindow(hwnd,9);user32.SetForegroundWindow(hwnd);return False
+            return True
+        callback=callback_type(visit)
+        user32.EnumWindows(callback,0)
+        return bool(found)
+    except Exception:return False
+
+
 def open_app_window(app, port):
     """Open one window; a successful launch must never open a second browser."""
     url = "http://127.0.0.1:%d/" % port
@@ -2776,6 +2826,7 @@ def open_app_window(app, port):
         "--autoplay-policy=no-user-gesture-required",
         "--no-first-run",
         "--no-default-browser-check",
+        "--allow-scripts-to-close-windows",
         "--window-size=1440,940",
         "--lang=zh-CN",
     ]
@@ -2896,9 +2947,12 @@ def main(argv=None):
     parser.add_argument("--no-syncplay", action="store_true")
     parser.add_argument("--no-browser", action="store_true", help="不要自动打开窗口")
     parser.add_argument("--local-only", action="store_true", help="只提供本机客户端界面")
+    parser.add_argument("--invite", type=normalize_invite, help="打开邀请并自动加入房间")
     args = parser.parse_args(argv)
 
     cfg = load_config()
+    if args.invite:
+        enqueue_invite(DATA_DIR,args.invite)
     if args.port:
         cfg["port"] = args.port
     if args.syncplay_port:
@@ -2926,7 +2980,13 @@ def main(argv=None):
             return 1
         if reuse:
             if not args.no_browser:
-                open_app_window(None, running)
+                listening=False
+                if args.invite:
+                    try:
+                        with urllib.request.urlopen('http://127.0.0.1:%d/api/health'%running,timeout=2) as response:
+                            listening=bool(json.load(response).get('invite_listener'))
+                    except Exception:pass
+                if not(listening and activate_room_window()):open_app_window(None, running)
             return 0
 
     app = App(cfg)

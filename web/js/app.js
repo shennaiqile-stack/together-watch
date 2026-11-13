@@ -259,6 +259,18 @@
       if (document.body.dataset.homeMode !== 'join') el.roomInput.value = randomRoom();
     }
     if (!S.profile) openProfile(true);
+    if(window.WatchInvites)WatchInvites.start(async value=>{
+      const invite=InviteLinks.parse(value);
+      const endpoint=PhoneRoomMode.endpoint;
+      if(S.joined&&S.room===invite.room&&endpoint&&endpoint.server.toLowerCase()===invite.server&&Number(endpoint.port)===invite.port)return;
+      if(window.WatchFullscreen&&WatchFullscreen.element())await WatchFullscreen.exit();
+      if(window.SettingsPage&&SettingsPage.active)SettingsPage.close();
+      document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
+      if(document.body.classList.contains('in-room'))leaveRoom(true);
+      el.serverInput.value=invite.url;
+      el.roomInput.value=invite.room;
+      await enterRoom(invite.room,el.nameInput.value||randomName(),false);
+    });
   }
 
   function applyConfig() {
@@ -2210,7 +2222,7 @@
     document.getElementById('share-room-code').textContent=S.room;
     document.getElementById('share-connection').textContent=S.joined?'本机已连接 · 等待好友加入':'本机尚未连接成功';
     document.getElementById('share-connection').dataset.connected=String(!!S.joined);
-    el.shareHint.textContent=phone?(window.PhoneRooms?'客户端邀请请在好友的新版客户端中粘贴加入。':'客户端邀请可直接粘贴加入；好友要用浏览器时，请开启下方“外网访问”，再复制生成的网页链接。'):'异地好友请先开启外网访问，再复制公网邀请。';
+    el.shareHint.textContent=phone?(window.PhoneRooms?'朋友点开邀请即可唤起新版客户端并进入房间，也可以在客户端粘贴加入。':'朋友点开邀请即可进入新版客户端；使用浏览器的好友，请开启下方“外网访问”并复制网页链接。'):'异地好友请先开启外网访问，再复制公网邀请。';
     el.dlgShare.showModal();
     refreshExternal();
     clearInterval(window.__shareStatusTimer);

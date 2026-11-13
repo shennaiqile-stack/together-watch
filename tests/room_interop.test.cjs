@@ -2,6 +2,7 @@ const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 function load(native){
  const window={SyncClient:class{},...(native?{PhoneRooms:{}}:{})};
  const context=vm.createContext({window,URL,document:{addEventListener(){}},localStorage:{value:null,getItem(){return this.value},setItem(k,v){this.value=v}},setTimeout,clearTimeout});
+ vm.runInContext(fs.readFileSync('web/js/invite-links.js','utf8'),context);
  vm.runInContext(fs.readFileSync('web/js/phone-rooms.js','utf8'),context);
  context.PhoneRoomMode=window.PhoneRoomMode;
  return context;
@@ -11,7 +12,7 @@ for(const context of [phone,pc]){
  const mode=context.window.PhoneRoomMode;
  const invite=mode.parse('syncplay://syncplay.pl:8999/ab2345');
  assert.equal(invite.server,'syncplay.pl');assert.equal(invite.port,8999);assert.equal(invite.room,'AB2345');
- mode.use(invite);assert.equal(mode.invite(invite.room),'syncplay://syncplay.pl:8999/AB2345');
+ mode.use(invite);assert.equal(mode.invite(invite.room),'togetherwatch://syncplay.pl:8999/AB2345');
  assert.equal(mode.parse('https://example.com/?room=AB2345'),null);
  assert.throws(()=>mode.parse('syncplay://user:secret@syncplay.pl:8999/AB2345'));
  assert.throws(()=>mode.parse('syncplay://syncplay.pl:8999/..'));

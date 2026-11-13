@@ -3,8 +3,8 @@
 param(
     [string]$Toolchain = "$env:LOCALAPPDATA\wtbuild\tools",
     [string]$AndroidJar = "C:\Users\19075\Documents\deepseek-harness\default-workspace\watch-together-pc\tools\android\sdk\platforms\android-36\android.jar",
-    [string]$Version = "5.8",
-    [int]$VersionCode = 19,
+    [string]$Version = "5.10",
+    [int]$VersionCode = 21,
     [string]$BaseApp = "input\base.apk",
     [switch]$Shell
 )
@@ -33,7 +33,7 @@ Write-Output '== aapt2 link =='
 & (Join-Path $bt 'aapt2.exe') link -o (Join-Path $out 'resources.apk') -I $AndroidJar `
     --manifest (Join-Path $app 'AndroidManifest.xml') `
     (Join-Path $out 'compiled.zip') `
-    --min-sdk-version 24 --target-sdk-version 36 --version-code $VersionCode --version-name $Version
+    --min-sdk-version 24 --target-sdk-version 36 --replace-version --version-code $VersionCode --version-name $Version
 if ($LASTEXITCODE) { throw 'aapt2 link 失败' }
 
 if ($Shell) {

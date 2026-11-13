@@ -387,6 +387,7 @@
 <script src="/js/anime4k.js"></script>
 <script src="/js/sr.js"></script>
 <script src="/js/sync.js"></script>
+<script src="/js/invite-links.js"></script>
 <script src="/js/phone-rooms.js"></script>
 <script src="/js/room-notice.js"></script>
 <dialog id="dlg-downloads" class="download-dialog"><form method="dialog" class="dialog-heading"><h2>本机下载</h2><button class="icon-btn" aria-label="关闭"><svg><use href="#i-close"/></svg></button></form><p class="download-note">每台设备需各自完成下载。进入同一房间后，从本机文件同步播放；房间服务只同步进度。</p><div id="download-list"></div><p id="download-empty">还没有下载。载入视频后，点击“下载到本机”。</p></dialog>
@@ -402,7 +403,7 @@
 <script src="/js/banner-art.js"></script>
 <script src="/js/discovery.js"></script>
 <dialog id="dlg-more" class="dlg more-dialog"><div class="dlg-head"><h3>更多</h3><button class="icon-btn" data-close aria-label="关闭">×</button></div><div class="dlg-body"><button class="btn tonal" data-more-action="nav-profile">我的账号</button><button class="btn tonal" data-more-action="btn-settings">设置</button><button class="btn tonal" data-more-action="nav-help">帮助</button></div></dialog>
-<dialog id="dlg-app-update" class="dlg app-update-dialog"><form method="dialog"><div class="dlg-head"><h3 id="app-update-title">发现新版本</h3><button class="icon-btn" aria-label="稍后更新">×</button></div><div class="dlg-body"><p id="app-update-notes"></p><p class="muted">下载后手动安装，当前播放不会自动中断。</p></div><div class="dlg-actions"><button class="btn text">稍后</button><a id="app-update-download" class="btn filled" target="_blank" rel="noopener noreferrer">下载安装包</a></div></form></dialog>
+<dialog id="dlg-app-update" class="dlg app-update-dialog"><form method="dialog"><div class="dlg-head"><h3 id="app-update-title">发现新版本</h3><button class="icon-btn" aria-label="稍后更新">×</button></div><div class="dlg-body"><p id="app-update-notes"></p><progress id="app-update-progress" max="100" value="0" hidden style="width:100%;accent-color:var(--primary)"></progress><p id="app-update-progress-text" role="status"></p><p class="muted">在应用内下载并校验。电脑安装时会重启应用；手机需在系统安装界面确认覆盖安装。</p></div><div class="dlg-actions"><button class="btn text">稍后</button><button type="button" id="app-update-download" class="btn filled">下载更新</button></div></form></dialog>
 <script src="/js/updates.js"></script>
 </body>
 </html>

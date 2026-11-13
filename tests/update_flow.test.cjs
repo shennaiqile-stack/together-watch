@@ -9,21 +9,25 @@ const nextAndroidVersion=nextAndroid.join('.');
 async function boot(platform,result){
   const nodes=new Map();let startup;
   const document={getElementById(id){if(!nodes.has(id))nodes.set(id,{textContent:'',disabled:false,open:false,showModal(){this.open=true;}});return nodes.get(id);},addEventListener(event,fn){startup=fn;}};
-  let call,scheduled;
+  let call,scheduled,poll;
   const window={PhoneRooms:platform==='android'?{}:undefined};
-  vm.runInNewContext(source,{window,document,AbortController,setTimeout(fn,ms){if(ms===1800)scheduled=fn;return 1;},clearTimeout(){},fetch:async(url,options)=>{call={url,options};if(result instanceof Error)throw result;return result;}});
+  vm.runInNewContext(source,{window,document,AbortController,setInterval(fn){poll=fn;return 1;},setTimeout(fn,ms){if(ms===1800)scheduled=fn;return 1;},clearTimeout(){},fetch:async(url,options)=>{if(url.startsWith('/api/'))return {ok:true,json:async()=>({stage:'idle'})};call={url,options};if(result instanceof Error)throw result;return result;}});
   startup();await scheduled();
-  return {nodes,window,call};
+  return {nodes,window,call,poll:()=>poll()};
 }
-const release={body:'<script>unsafe()</script>',assets:[{name:`TogetherWatch-Android-v${nextAndroidVersion}.apk`,state:'uploaded',size:123,browser_download_url:`https://github.com/shennaiqile-stack/together-watch/releases/download/release-2/TogetherWatch-Android-v${nextAndroidVersion}.apk`}]};
+const release={body:'<script>unsafe()</script>',assets:[{name:`TogetherWatch-Android-v${nextAndroidVersion}.apk`,state:'uploaded',size:123,digest:'sha256:'+'a'.repeat(64),browser_download_url:`https://github.com/shennaiqile-stack/together-watch/releases/download/release-2/TogetherWatch-Android-v${nextAndroidVersion}.apk`}]};
 test('every Android launch checks and offers matching newer package safely',async()=>{
   const a=await boot('android',{ok:true,json:async()=>release});
   assert(a.nodes.get('dlg-app-update').open);
   assert.equal(a.nodes.get('app-update-notes').textContent,release.body);
   assert.equal(a.call.options.credentials,'omit');
-  let opened,prevented=false;a.window.PhoneUpdates={openDownload(url){opened=url;}};
-  a.nodes.get('app-update-download').onclick({preventDefault(){prevented=true;}});
-  assert(prevented);assert.equal(opened,release.assets[0].browser_download_url);
+  let descriptor,prevented=false,stage='downloading',installed=false;
+  a.window.PhoneUpdates={start(value){descriptor=JSON.parse(value);},status(){return JSON.stringify({stage,total:123,downloaded:50});},install(){installed=true;}};
+  await a.nodes.get('app-update-download').onclick({preventDefault(){prevented=true;}});
+  assert(prevented);assert.equal(descriptor.url,release.assets[0].browser_download_url);assert.equal(descriptor.sha256,'a'.repeat(64));
+  assert.equal(a.nodes.get('app-update-download').disabled,true);
+  stage='ready';await a.poll();assert.equal(a.nodes.get('app-update-download').textContent,'安装更新');
+  await a.nodes.get('app-update-download').onclick({preventDefault(){}});assert(installed);
   assert.equal(a.nodes.get('btn-check-app-update').disabled,false);
 });
 test('offline startup stays usable and manual retry is available',async()=>{

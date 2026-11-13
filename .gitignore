@@ -10,6 +10,7 @@ __pycache__/
 /build/
 /dist/
 /.build/
+relay-client.json
 /android/build/
 /android/next-build/
 /android/base-interop/*.apk

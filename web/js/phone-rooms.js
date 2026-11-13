@@ -1,7 +1,7 @@
 /* Native phones can join the same public Syncplay room from different networks. */
 (() => {
   'use strict';
-  if (window.PhoneRooms) window.WT_APP_VERSION = '5.8';
+  if (window.PhoneRooms) window.WT_APP_VERSION = '5.10';
 
   function server(value) {
     const match = String(value || '').trim().match(/^([a-zA-Z0-9.-]{1,253})(?::(\d{1,5}))?$/);
@@ -35,15 +35,14 @@
       return url.href;
     },
     parse(text) {
-      if (!/^syncplay:\/\//i.test(text)) return null;
-      const url = new URL(text);
-      const endpoint = server(url.host);
-      const room = decodeURIComponent(url.pathname.slice(1)).toUpperCase();
-      if (!/^[A-Z0-9]{3,12}$/.test(room) || url.username || url.password) throw new Error('手机房间邀请无效，请重新复制完整链接');
+      if (!/^(?:syncplay|togetherwatch):\/\//i.test(text)) return null;
+      const parsed=window.InviteLinks.parse(text);
+      const endpoint={server:parsed.server,port:parsed.port};
+      const room=parsed.room;
       return {...endpoint,room,phone:true,base:'',key:''};
     },
     use(endpoint) { this.endpoint = endpoint; this.active = !!endpoint; },
-    invite(room) { return 'syncplay://' + this.endpoint.server + ':' + this.endpoint.port + '/' + room; }
+    invite(room) { return 'togetherwatch://' + this.endpoint.server + ':' + this.endpoint.port + '/' + room; }
   };
   const OriginalSync = window.SyncClient;
   class PhoneSync extends OriginalSync {
@@ -142,6 +141,6 @@
     const description = document.querySelector('[data-settings-panel="network"] .settings-description');
     if (description) description.textContent = '默认同步服务器可在下方修改，保存后用于下一次开房或按房号加入。完整邀请中的服务器优先。';
     const help = document.querySelector('#dlg-help .help-item p');
-    if (help) help.textContent = '创建房间后复制完整邀请，电脑与手机均可粘贴加入；只填房号时，两端服务器须一致。';
+    if (help) help.textContent = '创建房间后分享邀请，朋友点开即可唤起新版客户端并进入房间；也可粘贴加入。只填房号时，两端服务器须一致。';
   });
 })();

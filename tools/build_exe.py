@@ -29,8 +29,19 @@ def make_zip():
         for root, _dirs, files in os.walk(ONEDIR):
             for f in files:
                 p = os.path.join(root, f)
+                if os.path.relpath(p,ONEDIR).replace('\\','/')=='_internal/relay-client.json':
+                    continue
                 z.write(p, os.path.relpath(p, ONEDIR))
                 n += 1
+        private_config=os.environ.get('WT_RELAY_CLIENT_CONFIG')
+        if private_config:
+            sys.path.insert(0,ROOT)
+            from core.relay_config import load_builtin_relay
+            config=load_builtin_relay(ROOT)
+            if not config.get('pass'):raise ValueError('Restricted relay credentials missing')
+            import json
+            z.writestr('_internal/relay-client.json',json.dumps(config))
+            n+=1
     print("已压缩 %d 个文件 -> app.zip (%.1f MB)" % (n, os.path.getsize(ZIP) / 1048576))
     return True
 
@@ -47,6 +58,7 @@ def compile_launcher():
         "/reference:System.Windows.Forms.dll",
         "/reference:System.IO.Compression.dll",
         "/reference:System.IO.Compression.FileSystem.dll",
+        "/reference:System.Web.Extensions.dll",
         "/out:" + tmp_out,
         os.path.join(ROOT, "src", "Launcher.cs"),
     ]

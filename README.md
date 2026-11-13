@@ -2,11 +2,13 @@
 
 Windows 与 Android 同步观影客户端。视频由各设备分别加载，同步服务器负责房间、聊天与播放状态。
 
-当前版本：Windows 1.6.20 / Android 5.8。
+当前版本：Windows 1.6.23 / Android 5.10。
 
 ## 功能
 
 - 公共 Syncplay 邀请和六位房号；默认同步服务器 154.64.252.247:8999。
+- Windows 外网网页访问默认使用同一服务器的专用受限中转账号，自动选择 22000–22127 中的可用端口，并核对公网响应是否属于当前应用实例。同步连接保持 8999，不随网页中转端口变化。
+- 新邀请使用 togetherwatch://服务器:端口/房号，点击可唤起已安装的新版客户端并自动进房。Android 安装后支持，Windows 首次运行新版后注册当前用户的链接关联；运行中收到邀请也能处理。旧 syncplay:// 邀请仍可粘贴加入。部分聊天软件可能要求确认打开外部应用。
 - 默认服务器支持 TLS，安卓内置仅针对该服务器的证书信任配置；已有 5.7 客户端需更新到 5.8。独立 TLS 服务器入口为 tools/sync_server.py，证书私钥不包含在仓库中。
 - 网页邀请携带同步服务器、端口和房号，电脑版可开启外网访问。
 - 双端独立设置页、手机五项导航、全屏聊天与快捷回复。
@@ -26,6 +28,8 @@ Windows 与 Android 同步观影客户端。视频由各设备分别加载，同
 
 Windows 使用 PyInstaller 和 .NET 启动器；tools/build_exe.py 需要先准备 dist/TogetherWatch。
 
+带内置中转认证的安装包在执行 tools/build_exe.py 时设置 WT_RELAY_CLIENT_CONFIG，指向本机私有 relay-client.json。构建器仅接受预设受限账号的配置，配置只进入安装包，不提交到源码。用户自己的管理员凭据仅用于服务器维护；客户端不内置管理员密码。
+
 Android 构建入口为 tools/build_next_phone.ps1，需要 JDK 17 与 Android SDK。脚本仍含本机工具链路径，需要通过参数指定自己的工具链。也可以在原生代码未变更时使用 tools/build_phone_assets.py 更新先前 APK 的界面资源，再调用官方 apksig 签名库签名。
 
 input/base.apk 是用户提供的原生功能基线。Android 保留其现有原生实现并增加源码形式的 NextActivity；不能将编译用 MainActivity 声明打入 APK。完整重建仍需要 Android 构建工具及相应基线文件。
@@ -40,7 +44,7 @@ input/base.apk 是用户提供的原生功能基线。Android 保留其现有原
 
 ## 应用更新
 
-每次打开时异步检查本仓库最新正式 Release；设置 → 连接与应用可手动重试。仅匹配当前平台的 `TogetherWatch-Windows-v版本.exe` / `TogetherWatch-Android-v版本.apk`，版本分别比较。网络失败不会阻止启动，安装由用户手动确认。后续发布应在草稿中上传完整安装包后再发布。
+每次打开时异步检查本仓库最新正式 Release；设置 → 连接与应用可手动重试。仅匹配当前平台的 `TogetherWatch-Windows-v版本.exe` / `TogetherWatch-Android-v版本.apk`，版本分别比较。更新在应用内下载并核对大小和 SHA256，显示下载进度。Windows 下载后点击“安装并重启”，自动备份、覆盖原 EXE 和链接启动器，保留配置；Android 校验包名、版本和签名后打开系统覆盖安装界面，首次使用可能需要允许本应用安装更新。旧版需先手动升级到支持此流程的版本。后续发布应在草稿中上传完整安装包后再发布。
 
 设置 → 连接与应用可修改默认同步服务器（域名或 IP + 端口），保存在当前设备。完整邀请的服务器优先，修改默认值不会断开当前房间。
 

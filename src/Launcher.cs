@@ -5,6 +5,10 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
+using Microsoft.Win32;
+using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Web.Script.Serialization;
 
 /// <summary>
 /// 一起看 · 单文件启动器
@@ -13,7 +17,7 @@ using System.Windows.Forms;
 /// </summary>
 static class Program
 {
-    const string AppVersion = "1.6.20";
+    const string AppVersion = "1.6.23";
     const string ResourceName = "app.zip";
 
     [STAThread]
@@ -21,6 +25,7 @@ static class Program
     {
         try
         {
+            if(args.Length==2 && args[0]=="--apply-update")return ApplyUpdate(args[1]);
             string home = Environment.GetEnvironmentVariable("WT_HOME");
             Log("start home_env=" + (home ?? "<null>") + " exe=" + Application.ExecutablePath);
             if (string.IsNullOrWhiteSpace(home))
@@ -39,6 +44,9 @@ static class Program
             }
             Directory.CreateDirectory(home);
             Log("home=" + home);
+            if(Environment.GetEnvironmentVariable("WT_SKIP_PROTOCOL_REGISTRATION")!="1")RegisterProtocol(home);
+            if(args.Length==1 && args[0].StartsWith("togetherwatch://",StringComparison.OrdinalIgnoreCase))
+                args=new string[]{"--invite",args[0]};
 
             string appDir = Path.Combine(home, "app-" + AppVersion);
             string stamp = Path.Combine(appDir, ".ok");
@@ -61,6 +69,13 @@ static class Program
             psi.WorkingDirectory = appDir;
             psi.CreateNoWindow = true;
             psi.EnvironmentVariables["WT_DATA_DIR"] = Path.Combine(home, "data");
+            string locationFile=Path.Combine(home,"install-location.txt");
+            string stablePath=Path.Combine(home,"TogetherWatch-launcher.exe");
+            if(!string.Equals(Path.GetFullPath(stablePath),Path.GetFullPath(Application.ExecutablePath),StringComparison.OrdinalIgnoreCase))
+                File.WriteAllText(locationFile,Application.ExecutablePath);
+            string installed=File.Exists(locationFile)?File.ReadAllText(locationFile).Trim():Application.ExecutablePath;
+            psi.EnvironmentVariables["WT_LAUNCHER_PATH"] = File.Exists(installed)?installed:Application.ExecutablePath;
+            psi.EnvironmentVariables["WT_LAUNCHER_HOME"] = home;
             psi.Arguments = JoinArgs(args);
             Process.Start(psi);
 
@@ -83,6 +98,94 @@ static class Program
 
     static string LastWriteError = "";
 
+    public class UpdatePlan
+    {
+        public string source {get;set;}
+        public string sha256 {get;set;}
+        public string destination {get;set;}
+        public string home {get;set;}
+        public int pid {get;set;}
+        public string[] arguments {get;set;}
+    }
+
+    static string HashFile(string filename)
+    {
+        using(var hash=SHA256.Create())using(var input=File.OpenRead(filename))
+            return BitConverter.ToString(hash.ComputeHash(input)).Replace("-","").ToLowerInvariant();
+    }
+
+    static void StartInstalled(UpdatePlan plan)
+    {
+        var start=new ProcessStartInfo(plan.destination);
+        start.UseShellExecute=false;start.WorkingDirectory=Path.GetDirectoryName(plan.destination);
+        start.EnvironmentVariables["WT_HOME"]=plan.home;
+        start.Arguments=JoinArgs(plan.arguments??new string[0]);
+        Process.Start(start);
+    }
+
+    static int ApplyUpdate(string filename)
+    {
+        UpdatePlan plan=null;bool handoff=false;var backups=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            string source=Path.GetFullPath(Application.ExecutablePath);
+            if(!string.Equals(Path.GetDirectoryName(source),Path.GetDirectoryName(Path.GetFullPath(filename)),StringComparison.OrdinalIgnoreCase))
+                throw new IOException("更新计划目录无效");
+            plan=new JavaScriptSerializer().Deserialize<UpdatePlan>(File.ReadAllText(filename));
+            if(!string.Equals(source,Path.GetFullPath(plan.source),StringComparison.OrdinalIgnoreCase)||HashFile(source)!=plan.sha256)
+                throw new IOException("更新文件校验失败");
+            if(!Path.IsPathRooted(plan.destination)||!plan.destination.EndsWith(".exe",StringComparison.OrdinalIgnoreCase)||!Path.IsPathRooted(plan.home))
+                throw new IOException("应用安装位置无效");
+            handoff=true;
+            if(plan.pid>0)
+            {
+                try{using(var old=Process.GetProcessById(plan.pid)){if(!old.WaitForExit(30000))throw new IOException("旧程序尚未退出，请重试");}}
+                catch(ArgumentException){}
+            }
+            var destinations=new HashSet<string>(StringComparer.OrdinalIgnoreCase){Path.GetFullPath(plan.destination),Path.Combine(plan.home,"TogetherWatch-launcher.exe")};
+            foreach(string destination in destinations)
+            {
+                if(string.Equals(destination,source,StringComparison.OrdinalIgnoreCase))throw new IOException("更新源与目标相同");
+                Directory.CreateDirectory(Path.GetDirectoryName(destination));
+                string backup=Path.Combine(Path.GetDirectoryName(filename),Guid.NewGuid().ToString("N")+".previous.exe");
+                if(File.Exists(destination)){File.Copy(destination,backup,true);backups[destination]=backup;}
+                string temporary=destination+".update-new";File.Copy(source,temporary,true);
+                bool done=false;
+                for(int attempt=0;attempt<40;attempt++)
+                {
+                    try{if(File.Exists(destination))File.Replace(temporary,destination,null);else File.Move(temporary,destination);done=true;break;}
+                    catch(IOException){System.Threading.Thread.Sleep(250);}
+                }
+                if(!done)throw new IOException("无法覆盖旧程序，请检查目录权限");
+            }
+            File.WriteAllText(filename+".result.json","{\"ok\":true}");
+            StartInstalled(plan);return 0;
+        }
+        catch(Exception error)
+        {
+            foreach(var pair in backups){try{File.Copy(pair.Value,pair.Key,true);}catch{}}
+            try{File.WriteAllText(filename+".result.json",new JavaScriptSerializer().Serialize(new{ok=false,error=error.Message}));}catch{}
+            if(handoff && plan!=null && File.Exists(plan.destination)){try{StartInstalled(plan);}catch{}}
+            Log("update failed: "+error.Message);return 1;
+        }
+    }
+
+    static void RegisterProtocol(string home)
+    {
+        try
+        {
+            string stable=Path.Combine(home,"TogetherWatch-launcher.exe");
+            if(!string.Equals(Path.GetFullPath(stable),Path.GetFullPath(Application.ExecutablePath),StringComparison.OrdinalIgnoreCase))
+                File.Copy(Application.ExecutablePath,stable,true);
+            using(var key=Registry.CurrentUser.CreateSubKey(@"Software\Classes\togetherwatch"))
+            {
+                key.SetValue("","URL:TogetherWatch Invitation");key.SetValue("URL Protocol","");
+                using(var command=key.CreateSubKey(@"shell\open\command"))command.SetValue("","\""+stable+"\" \"%1\"");
+            }
+        }
+        catch(Exception error){Log("URL registration failed: "+error.GetType().Name);}
+    }
+
     static long BundleSize(string name)
     {
         using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(name))
@@ -101,6 +204,7 @@ static class Program
             "TogetherWatch.exe", "_internal/web/index.html", "_internal/web/css/app.css",
             "_internal/web/js/app.js", "_internal/web/js/interface.js", "_internal/web/js/theme.js",
             "_internal/web/js/player.js", "_internal/web/js/sync.js", "_internal/web/js/media-source.js",
+            "_internal/web/js/invite-links.js",
             "_internal/web/js/home-art.js", "_internal/web/art/bangumi/index.json",
             "_internal/web/js/source-engine.js", "_internal/web/js/personal-account.js", "_internal/web/js/chat-alerts.js", "_internal/web/js/fullscreen.js", "_internal/web/art/providers.json",
             "_internal/web/js/downloads.js", "_internal/web/js/anime-sources.js", "_internal/web/js/hls.min.js",
@@ -171,10 +275,13 @@ static class Program
         foreach (var a in args)
         {
             if (sb.Length > 0) sb.Append(' ');
-            if (a.IndexOf(' ') >= 0 || a.IndexOf('\t') >= 0)
-                sb.Append('"').Append(a.Replace("\"", "\\\"")).Append('"');
-            else
-                sb.Append(a);
+            sb.Append('"');int slashes=0;
+            foreach(char c in a)
+            {
+                if(c=='\\'){slashes++;continue;}
+                sb.Append('\\',c=='"'?slashes*2+1:slashes);sb.Append(c);slashes=0;
+            }
+            sb.Append('\\',slashes*2);sb.Append('"');
         }
         return sb.ToString();
     }
